@@ -1,0 +1,43 @@
+﻿# Build output
+/build/
+/out/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+CMakeSettings.json
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+
+# vcpkg (if ever vendored locally inside the repo - shouldn't be, but just in case)
+/vcpkg_installed/
+
+# Qt
+*.autosave
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Binaries
+*.exe
+*.dll
+*.lib
+*.pdb
+*.obj
+*.ilk
+*.exp
+
+# Misc
+*.log
