@@ -14,10 +14,16 @@ find_package(OpenSSL REQUIRED)
 set(SOURCES
     src/main.cpp
     src/ui/MainWindow.cpp
+    src/engine/CryptoEngine.cpp
+    src/engine/FolderPacker.cpp
 )
 
 set(HEADERS
     src/ui/MainWindow.h
+    src/engine/Result.h
+    src/engine/SecureBytes.h
+    src/engine/CryptoEngine.h
+    src/engine/FolderPacker.h
 )
 
 add_executable(ByteLock WIN32 ${SOURCES} ${HEADERS})
@@ -47,3 +53,4 @@ if(WIN32)
         )
     endif()
 endif()
+
