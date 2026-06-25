@@ -2,8 +2,11 @@
 
 #include <QMainWindow>
 
-class QLabel;
-class QPushButton;
+class QWidget;
+class QStackedWidget;
+class MainViewModel;
+class TitleBar;
+class Sidebar;
 
 class MainWindow : public QMainWindow
 {
@@ -13,18 +16,22 @@ public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow() override;
 
+protected:
+#ifdef Q_OS_WIN
+    bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override;
+#endif
+    void changeEvent(QEvent* event) override;
+
 private slots:
-    void onCheckOpenSslClicked();
-    void onRunCryptoSelfTestClicked();
-    void onLockFolderClicked();
-    void onUnlockFolderClicked();
+    void onTitleBarMinimize();
+    void onTitleBarMaximizeRestore();
+    void onTitleBarClose();
 
 private:
     void setupUi();
 
-    QLabel* m_statusLabel = nullptr;
-    QPushButton* m_checkButton = nullptr;
-    QPushButton* m_selfTestButton = nullptr;
-    QPushButton* m_lockFolderButton = nullptr;
-    QPushButton* m_unlockFolderButton = nullptr;
+    MainViewModel* m_viewModel = nullptr;
+    TitleBar* m_titleBar = nullptr;
+    Sidebar* m_sidebar = nullptr;
+    QStackedWidget* m_stackedWidget = nullptr;
 };

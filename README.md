@@ -58,3 +58,7 @@ Application source code license: TBD.
 '@ | Set-Content -Path "$root\README.md" -Encoding UTF8
 
 Write-Host "Created .gitignore and README.md" -ForegroundColor Green
+
+## Future / v2 (not in current scope)
+
+- [ ] Hide Folder (Windows attribute-based hiding, separate from true encryption)

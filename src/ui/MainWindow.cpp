@@ -1,203 +1,195 @@
 ﻿#include "ui/MainWindow.h"
+#include "ui/AboutPage.h"
+#include "ui/DashboardPage.h"
+#include "ui/SettingsPage.h"
+#include "ui/Sidebar.h"
+#include "ui/TitleBar.h"
+#include "viewmodel/MainViewModel.h"
 
-#include <QCoreApplication>
-#include <QElapsedTimer>
-#include <QFileDialog>
-#include <QInputDialog>
-#include <QLabel>
-#include <QLineEdit>
-#include <QPushButton>
+#include <QEvent>
+#include <QHBoxLayout>
+#include <QStackedWidget>
 #include <QVBoxLayout>
 #include <QWidget>
 
-#include <openssl/opensslv.h>
+#ifdef Q_OS_WIN
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <windowsx.h>
+#endif
 
-#include "engine/CryptoEngine.h"
-#include "engine/FolderPacker.h"
-
-using namespace bytelock;
+namespace {
+constexpr int kResizeBorderPx = 6;
+}
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
 {
+    m_viewModel = new MainViewModel(this);
     setupUi();
+
+#ifdef Q_OS_WIN
+    winId();
+#endif
 }
 
 MainWindow::~MainWindow() = default;
 
 void MainWindow::setupUi()
 {
-    setWindowTitle("ByteLock - Scaffold");
-    resize(560, 400);
+    resize(1000, 650);
+    setWindowTitle("ByteLock");
 
-    auto* central = new QWidget(this);
-    auto* layout = new QVBoxLayout(central);
+    auto* outer = new QWidget(this);
+    auto* outerLayout = new QVBoxLayout(outer);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+    outerLayout->setSpacing(0);
 
-    m_statusLabel = new QLabel("ByteLock scaffold running.", central);
-    m_statusLabel->setAlignment(Qt::AlignCenter);
-    m_statusLabel->setWordWrap(true);
+    m_titleBar = new TitleBar(outer);
+    outerLayout->addWidget(m_titleBar);
 
-    m_checkButton = new QPushButton("Check OpenSSL Link", central);
-    m_selfTestButton = new QPushButton("Run Crypto Self-Test", central);
-    m_lockFolderButton = new QPushButton("Lock a Folder...", central);
-    m_unlockFolderButton = new QPushButton("Unlock a .blk Container...", central);
+    auto* body = new QWidget(outer);
+    auto* bodyLayout = new QHBoxLayout(body);
+    bodyLayout->setContentsMargins(0, 0, 0, 0);
+    bodyLayout->setSpacing(0);
 
-    layout->addStretch();
-    layout->addWidget(m_statusLabel);
-    layout->addWidget(m_checkButton);
-    layout->addWidget(m_selfTestButton);
-    layout->addWidget(m_lockFolderButton);
-    layout->addWidget(m_unlockFolderButton);
-    layout->addStretch();
+    m_sidebar = new Sidebar(body);
+    bodyLayout->addWidget(m_sidebar);
 
-    setCentralWidget(central);
+    m_stackedWidget = new QStackedWidget(body);
+    m_stackedWidget->addWidget(new DashboardPage(m_viewModel, m_stackedWidget));
+    m_stackedWidget->addWidget(new SettingsPage(m_stackedWidget));
+    m_stackedWidget->addWidget(new AboutPage(m_stackedWidget));
+    bodyLayout->addWidget(m_stackedWidget, 1);
 
-    connect(m_checkButton, &QPushButton::clicked, this, &MainWindow::onCheckOpenSslClicked);
-    connect(m_selfTestButton, &QPushButton::clicked, this, &MainWindow::onRunCryptoSelfTestClicked);
-    connect(m_lockFolderButton, &QPushButton::clicked, this, &MainWindow::onLockFolderClicked);
-    connect(m_unlockFolderButton, &QPushButton::clicked, this, &MainWindow::onUnlockFolderClicked);
+    outerLayout->addWidget(body, 1);
+
+    setCentralWidget(outer);
+
+    connect(m_titleBar, &TitleBar::minimizeRequested, this, &MainWindow::onTitleBarMinimize);
+    connect(m_titleBar, &TitleBar::maximizeRestoreRequested, this, &MainWindow::onTitleBarMaximizeRestore);
+    connect(m_titleBar, &TitleBar::closeRequested, this, &MainWindow::onTitleBarClose);
+
+    connect(m_sidebar, &Sidebar::pageRequested, this, [this](Sidebar::Page page) {
+        m_stackedWidget->setCurrentIndex(static_cast<int>(page));
+    });
 }
 
-void MainWindow::onCheckOpenSslClicked()
+void MainWindow::onTitleBarMinimize()
 {
-    QString versionText = QString("OpenSSL linked successfully:\n%1").arg(OPENSSL_VERSION_TEXT);
-    m_statusLabel->setText(versionText);
+    showMinimized();
 }
 
-void MainWindow::onRunCryptoSelfTestClicked()
+void MainWindow::onTitleBarMaximizeRestore()
 {
-    QStringList log;
-
-    auto saltResult = CryptoEngine::randomBytes(CryptoEngine::SaltSizeBytes);
-    if (!saltResult) {
-        m_statusLabel->setText("FAILED generating salt: " + QString::fromStdString(saltResult.errorMessage()));
-        return;
-    }
-
-    QElapsedTimer timer;
-    timer.start();
-    auto keyResult = CryptoEngine::deriveKey("TestPassword123!", saltResult.value());
-    qint64 kdfMs = timer.elapsed();
-
-    if (!keyResult) {
-        m_statusLabel->setText("FAILED deriving key: " + QString::fromStdString(keyResult.errorMessage()));
-        return;
-    }
-    log << QString("[OK] Argon2id key derived in %1 ms").arg(kdfMs);
-
-    const std::string original = "Hello, ByteLock! This proves AES-256-GCM round-trips correctly.";
-    std::vector<uint8_t> plaintext(original.begin(), original.end());
-
-    auto encryptResult = CryptoEngine::encryptBuffer(plaintext, keyResult.value());
-    if (!encryptResult) {
-        m_statusLabel->setText("FAILED encrypting: " + QString::fromStdString(encryptResult.errorMessage()));
-        return;
-    }
-    log << QString("[OK] Encrypted %1 bytes -> %2 bytes (IV + ciphertext + tag)")
-               .arg(plaintext.size())
-               .arg(encryptResult.value().size());
-
-    auto decryptResult = CryptoEngine::decryptBuffer(encryptResult.value(), keyResult.value());
-    if (!decryptResult) {
-        m_statusLabel->setText("FAILED decrypting: " + QString::fromStdString(decryptResult.errorMessage()));
-        return;
-    }
-
-    std::string roundTrip(decryptResult.value().begin(), decryptResult.value().end());
-    if (roundTrip != original) {
-        log << "[FAIL] Round-trip mismatch! Decrypted text does not match original.";
+    if (isMaximized()) {
+        showNormal();
     } else {
-        log << "[OK] Round-trip verified: decrypted text matches original exactly";
+        showMaximized();
     }
-
-    std::vector<uint8_t> tampered = encryptResult.value();
-    size_t tamperIndex = CryptoEngine::IvSizeBytes;
-    tampered[tamperIndex] ^= 0xFF;
-
-    auto tamperResult = CryptoEngine::decryptBuffer(tampered, keyResult.value());
-    if (tamperResult.isOk()) {
-        log << "[FAIL] Tampered data was NOT rejected - this should never happen!";
-    } else if (tamperResult.error() == ErrorCode::AuthenticationFailed) {
-        log << "[OK] Tampered ciphertext correctly rejected (AuthenticationFailed)";
-    } else {
-        log << QString("[WARN] Tampered data rejected, but with unexpected error: %1")
-                   .arg(QString::fromStdString(tamperResult.errorMessage()));
-    }
-
-    m_statusLabel->setText(log.join("\n"));
 }
 
-void MainWindow::onLockFolderClicked()
+void MainWindow::onTitleBarClose()
 {
-    QString folder = QFileDialog::getExistingDirectory(this, "Select folder to lock");
-    if (folder.isEmpty()) return;
-
-    bool ok = false;
-    QString password = QInputDialog::getText(this, "Set Password", "Enter a password to lock this folder:",
-                                              QLineEdit::Password, "", &ok);
-    if (!ok || password.isEmpty()) return;
-
-    m_statusLabel->setText("Locking folder, please wait (this can take a moment)...");
-    QCoreApplication::processEvents();
-
-    auto saltResult = CryptoEngine::randomBytes(CryptoEngine::SaltSizeBytes);
-    if (!saltResult) {
-        m_statusLabel->setText("FAILED: " + QString::fromStdString(saltResult.errorMessage()));
-        return;
-    }
-
-    auto keyResult = CryptoEngine::deriveKey(password.toStdString(), saltResult.value());
-    if (!keyResult) {
-        m_statusLabel->setText("FAILED: " + QString::fromStdString(keyResult.errorMessage()));
-        return;
-    }
-
-    QString containerPath = folder + ".blk";
-    auto lockResult = FolderPacker::lockFolder(folder.toStdString(), containerPath.toStdString(),
-                                                keyResult.value(), saltResult.value());
-    if (!lockResult) {
-        m_statusLabel->setText("FAILED to lock folder: " + QString::fromStdString(lockResult.errorMessage()));
-        return;
-    }
-
-    m_statusLabel->setText("Folder locked successfully.\nContainer: " + containerPath);
+    close();
 }
 
-void MainWindow::onUnlockFolderClicked()
+void MainWindow::changeEvent(QEvent* event)
 {
-    QString containerPath = QFileDialog::getOpenFileName(this, "Select .blk container to unlock", "", "ByteLock Container (*.blk)");
-    if (containerPath.isEmpty()) return;
-
-    auto saltResult = FolderPacker::peekContainerSalt(containerPath.toStdString());
-    if (!saltResult) {
-        m_statusLabel->setText("FAILED: " + QString::fromStdString(saltResult.errorMessage()));
-        return;
+    if (event->type() == QEvent::WindowStateChange && m_titleBar) {
+        m_titleBar->setMaximizedState(isMaximized());
     }
-
-    bool ok = false;
-    QString password = QInputDialog::getText(this, "Enter Password", "Enter the password for this folder:",
-                                              QLineEdit::Password, "", &ok);
-    if (!ok || password.isEmpty()) return;
-
-    m_statusLabel->setText("Unlocking folder, please wait...");
-    QCoreApplication::processEvents();
-
-    auto keyResult = CryptoEngine::deriveKey(password.toStdString(), saltResult.value());
-    if (!keyResult) {
-        m_statusLabel->setText("FAILED: " + QString::fromStdString(keyResult.errorMessage()));
-        return;
-    }
-
-    QString destination = containerPath;
-    if (destination.endsWith(".blk")) {
-        destination.chop(4);
-    }
-
-    auto unlockResult = FolderPacker::unlockFolder(containerPath.toStdString(), destination.toStdString(), keyResult.value());
-    if (!unlockResult) {
-        m_statusLabel->setText("FAILED to unlock: " + QString::fromStdString(unlockResult.errorMessage()));
-        return;
-    }
-
-    m_statusLabel->setText("Folder unlocked successfully.\nRestored to: " + destination);
+    QMainWindow::changeEvent(event);
 }
+
+#ifdef Q_OS_WIN
+bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr* result)
+{
+    if (eventType != "windows_generic_MSG") {
+        return QMainWindow::nativeEvent(eventType, message, result);
+    }
+
+    MSG* msg = static_cast<MSG*>(message);
+
+    switch (msg->message) {
+    case WM_NCCALCSIZE: {
+        if (msg->wParam == TRUE) {
+            auto* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(msg->lParam);
+            if (::IsZoomed(msg->hwnd)) {
+                const int borderThickness = GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
+                params->rgrc[0].left += borderThickness;
+                params->rgrc[0].right -= borderThickness;
+                params->rgrc[0].bottom -= borderThickness;
+                params->rgrc[0].top += borderThickness;
+            }
+            *result = 0;
+            return true;
+        }
+        return false;
+    }
+    case WM_NCHITTEST: {
+        const long x = GET_X_LPARAM(msg->lParam);
+        const long y = GET_Y_LPARAM(msg->lParam);
+
+        RECT winRect;
+        ::GetWindowRect(msg->hwnd, &winRect);
+
+        const LONG border = static_cast<LONG>(kResizeBorderPx * devicePixelRatioF());
+
+        const bool onLeft = x < winRect.left + border;
+        const bool onRight = x >= winRect.right - border;
+        const bool onTop = y < winRect.top + border;
+        const bool onBottom = y >= winRect.bottom - border;
+
+        if (!isMaximized()) {
+            if (onTop && onLeft) { *result = HTTOPLEFT; return true; }
+            if (onTop && onRight) { *result = HTTOPRIGHT; return true; }
+            if (onBottom && onLeft) { *result = HTBOTTOMLEFT; return true; }
+            if (onBottom && onRight) { *result = HTBOTTOMRIGHT; return true; }
+            if (onLeft) { *result = HTLEFT; return true; }
+            if (onRight) { *result = HTRIGHT; return true; }
+            if (onTop) { *result = HTTOP; return true; }
+            if (onBottom) { *result = HTBOTTOM; return true; }
+        }
+
+        if (m_titleBar) {
+            const qreal dpr = devicePixelRatioF();
+            const QPoint titleBarOriginLogical = m_titleBar->mapToGlobal(QPoint(0, 0));
+            const QRect titleBarPhysicalRect(
+                static_cast<int>(titleBarOriginLogical.x() * dpr),
+                static_cast<int>(titleBarOriginLogical.y() * dpr),
+                static_cast<int>(m_titleBar->width() * dpr),
+                static_cast<int>(m_titleBar->height() * dpr));
+
+            if (titleBarPhysicalRect.contains(QPoint(x, y))) {
+                const int localX = static_cast<int>((x - titleBarPhysicalRect.x()) / dpr);
+                const int localY = static_cast<int>((y - titleBarPhysicalRect.y()) / dpr);
+                QWidget* child = m_titleBar->childAt(localX, localY);
+                if (child == nullptr) {
+                    *result = HTCAPTION;
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        return false;
+    }
+    case WM_NCLBUTTONDBLCLK: {
+        if (msg->wParam == HTCAPTION) {
+            if (isMaximized()) {
+                showNormal();
+            } else {
+                showMaximized();
+            }
+            *result = 0;
+            return true;
+        }
+        return false;
+    }
+    default:
+        return QMainWindow::nativeEvent(eventType, message, result);
+    }
+}
+#endif

@@ -8,18 +8,30 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent)
 find_package(OpenSSL REQUIRED)
 
 set(SOURCES
     src/main.cpp
     src/ui/MainWindow.cpp
+    src/ui/TitleBar.cpp
+    src/ui/Sidebar.cpp
+    src/ui/DashboardPage.cpp
+    src/ui/SettingsPage.cpp
+    src/ui/AboutPage.cpp
+    src/viewmodel/MainViewModel.cpp
     src/engine/CryptoEngine.cpp
     src/engine/FolderPacker.cpp
 )
 
 set(HEADERS
     src/ui/MainWindow.h
+    src/ui/TitleBar.h
+    src/ui/Sidebar.h
+    src/ui/DashboardPage.h
+    src/ui/SettingsPage.h
+    src/ui/AboutPage.h
+    src/viewmodel/MainViewModel.h
     src/engine/Result.h
     src/engine/SecureBytes.h
     src/engine/CryptoEngine.h
@@ -30,6 +42,7 @@ add_executable(ByteLock WIN32 ${SOURCES} ${HEADERS})
 
 target_link_libraries(ByteLock PRIVATE
     Qt6::Widgets
+    Qt6::Concurrent
     OpenSSL::SSL
     OpenSSL::Crypto
 )
@@ -39,6 +52,8 @@ target_include_directories(ByteLock PRIVATE
 )
 
 if(WIN32)
+    target_link_libraries(ByteLock PRIVATE user32)
+
     get_target_property(_qt6_core_location Qt6::Core IMPORTED_LOCATION_RELEASE)
     if(NOT _qt6_core_location)
         get_target_property(_qt6_core_location Qt6::Core IMPORTED_LOCATION_DEBUG)
@@ -53,4 +68,3 @@ if(WIN32)
         )
     endif()
 endif()
-
