@@ -1,8 +1,8 @@
-# ByteLock
+﻿# ByteLock
 
 > Production-grade, zero-knowledge AES-256 folder encryption for Windows.
 
-**Status:** 🚧 Early development — project scaffold complete, core engine in progress.
+**Status:** ðŸš§ Early development â€” project scaffold complete, core engine in progress.
 
 ## Overview
 
@@ -27,7 +27,7 @@ ByteLock is a native Windows desktop application for encrypting local folders us
 - [x] Project scaffold (Qt6 + OpenSSL + CMake build verified)
 - [ ] Core crypto engine: AES-256-GCM file encryption/decryption
 - [ ] Argon2id key derivation from master password
-- [ ] Recursive folder packing/unpacking into secure containers
+- [x] Recursive folder packing/unpacking into secure containers
 - [ ] Dashboard UI: drag-and-drop folder locking, live status list
 - [ ] Onboarding flow: master password + mandatory recovery key generation
 - [ ] Settings: start with Windows, shell context menu integration, idle auto-lock
