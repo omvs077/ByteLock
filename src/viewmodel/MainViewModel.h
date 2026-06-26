@@ -29,6 +29,7 @@ public:
 
 public slots:
     void clearSessionPassword() { m_sessionPassword.reset(); }
+    void seedSessionPassword(const QString& password) { m_sessionPassword = password; }
 
     void requestLockFolder(const QString& folderPath, const QString& password, bool rememberPassword);
     void requestUnlockFolder(const QString& containerPath, const QString& password, bool rememberPassword);

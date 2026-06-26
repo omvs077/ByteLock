@@ -19,9 +19,12 @@ set(SOURCES
     src/ui/DashboardPage.cpp
     src/ui/SettingsPage.cpp
     src/ui/AboutPage.cpp
+    src/ui/PasswordLineEdit.cpp
+    src/ui/AuthGateDialog.cpp
     src/viewmodel/MainViewModel.cpp
     src/engine/CryptoEngine.cpp
     src/engine/FolderPacker.cpp
+    src/engine/DefaultPasswordStore.cpp
 )
 
 set(HEADERS
@@ -31,11 +34,14 @@ set(HEADERS
     src/ui/DashboardPage.h
     src/ui/SettingsPage.h
     src/ui/AboutPage.h
+    src/ui/PasswordLineEdit.h
+    src/ui/AuthGateDialog.h
     src/viewmodel/MainViewModel.h
     src/engine/Result.h
     src/engine/SecureBytes.h
     src/engine/CryptoEngine.h
     src/engine/FolderPacker.h
+    src/engine/DefaultPasswordStore.h
 )
 
 add_executable(ByteLock WIN32 ${SOURCES} ${HEADERS})

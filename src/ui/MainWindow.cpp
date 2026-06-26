@@ -36,6 +36,11 @@ MainWindow::MainWindow(QWidget* parent)
 
 MainWindow::~MainWindow() = default;
 
+void MainWindow::seedSessionPassword(const QString& password)
+{
+    m_viewModel->seedSessionPassword(password);
+}
+
 void MainWindow::setupUi()
 {
     resize(1000, 650);
@@ -193,3 +198,4 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr
     }
 }
 #endif
+

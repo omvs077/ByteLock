@@ -12,6 +12,7 @@ constexpr int kSidebarWidth = 220;
 Sidebar::Sidebar(QWidget* parent)
     : QWidget(parent)
 {
+    setAttribute(Qt::WA_StyledBackground, true);
     setFixedWidth(kSidebarWidth);
     setObjectName("Sidebar");
 
@@ -21,7 +22,7 @@ Sidebar::Sidebar(QWidget* parent)
 
     auto* brandLabel = new QLabel("ByteLock", this);
     brandLabel->setObjectName("SidebarBrandLabel");
-    auto* taglineLabel = new QLabel("Secure. Lock. Protect.", this);
+    auto* taglineLabel = new QLabel("Your Digital Safe", this);
     taglineLabel->setObjectName("SidebarTaglineLabel");
 
     layout->addWidget(brandLabel);
@@ -95,3 +96,4 @@ void Sidebar::setActivePage(Page page)
         case Page::About: m_aboutButton->setChecked(true); break;
     }
 }
+

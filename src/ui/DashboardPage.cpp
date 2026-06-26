@@ -1,11 +1,10 @@
 ﻿#include "ui/DashboardPage.h"
+#include "ui/AuthGateDialog.h"
 #include "viewmodel/MainViewModel.h"
+#include "engine/DefaultPasswordStore.h"
 
 #include <QFileDialog>
-#include <QInputDialog>
 #include <QLabel>
-#include <QLineEdit>
-#include <QMessageBox>
 #include <QPushButton>
 #include <QVBoxLayout>
 
@@ -79,23 +78,11 @@ void DashboardPage::onLockFolderClicked()
     QString folder = QFileDialog::getExistingDirectory(this, "Select folder to lock");
     if (folder.isEmpty()) return;
 
-    if (m_viewModel->hasSessionPassword()) {
-        auto choice = QMessageBox::question(this, "Use Saved Password?",
-            "Use your saved session password for this folder?\n\n"
-            "(Choose No to set a different password for just this folder.)",
-            QMessageBox::Yes | QMessageBox::No);
-        if (choice == QMessageBox::Yes) {
-            m_viewModel->requestLockFolderWithSessionPassword(folder);
-            return;
-        }
-    }
+    bytelock::DefaultPasswordStore store;
+    AuthGateDialog gate(store.exists() ? AuthGateDialog::Mode::EnterPassword : AuthGateDialog::Mode::SetNewPassword, this);
+    if (gate.exec() != QDialog::Accepted) return;
 
-    bool ok = false;
-    QString password = QInputDialog::getText(this, "Set Password", "Enter a password to lock this folder:",
-                                              QLineEdit::Password, "", &ok);
-    if (!ok || password.isEmpty()) return;
-
-    m_viewModel->requestLockFolder(folder, password, true);
+    m_viewModel->requestLockFolder(folder, gate.verifiedPassword(), false);
 }
 
 void DashboardPage::onUnlockFolderClicked()
@@ -103,21 +90,9 @@ void DashboardPage::onUnlockFolderClicked()
     QString containerPath = QFileDialog::getOpenFileName(this, "Select .blk container to unlock", "", "ByteLock Container (*.blk)");
     if (containerPath.isEmpty()) return;
 
-    if (m_viewModel->hasSessionPassword()) {
-        auto choice = QMessageBox::question(this, "Use Saved Password?",
-            "Use your saved session password to unlock this folder?\n\n"
-            "(Choose No to enter a different password.)",
-            QMessageBox::Yes | QMessageBox::No);
-        if (choice == QMessageBox::Yes) {
-            m_viewModel->requestUnlockFolderWithSessionPassword(containerPath);
-            return;
-        }
-    }
+    bytelock::DefaultPasswordStore store;
+    AuthGateDialog gate(store.exists() ? AuthGateDialog::Mode::EnterPassword : AuthGateDialog::Mode::SetNewPassword, this);
+    if (gate.exec() != QDialog::Accepted) return;
 
-    bool ok = false;
-    QString password = QInputDialog::getText(this, "Enter Password", "Enter the password for this folder:",
-                                              QLineEdit::Password, "", &ok);
-    if (!ok || password.isEmpty()) return;
-
-    m_viewModel->requestUnlockFolder(containerPath, password, true);
+    m_viewModel->requestUnlockFolder(containerPath, gate.verifiedPassword(), false);
 }

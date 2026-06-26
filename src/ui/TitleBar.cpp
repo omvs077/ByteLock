@@ -13,6 +13,7 @@ constexpr int kButtonWidth = 46;
 TitleBar::TitleBar(QWidget* parent)
     : QWidget(parent)
 {
+    setAttribute(Qt::WA_StyledBackground, true);
     setFixedHeight(kTitleBarHeight);
     setObjectName("TitleBar");
 
@@ -88,3 +89,4 @@ void TitleBar::setMaximizedState(bool maximized)
         ? QString::fromUtf8("\xE2\x9D\x90")
         : QString::fromUtf8("\xE2\x96\xA1"));
 }
+

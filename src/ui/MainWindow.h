@@ -16,6 +16,8 @@ public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow() override;
 
+    void seedSessionPassword(const QString& password);
+
 protected:
 #ifdef Q_OS_WIN
     bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override;
