@@ -25,6 +25,7 @@ set(SOURCES
     src/engine/CryptoEngine.cpp
     src/engine/FolderPacker.cpp
     src/engine/DefaultPasswordStore.cpp
+    src/persistence/FolderRegistry.cpp
 )
 
 set(HEADERS
@@ -42,6 +43,7 @@ set(HEADERS
     src/engine/CryptoEngine.h
     src/engine/FolderPacker.h
     src/engine/DefaultPasswordStore.h
+    src/persistence/FolderRegistry.h
 )
 
 add_executable(ByteLock WIN32 ${SOURCES} ${HEADERS})
@@ -74,3 +76,4 @@ if(WIN32)
         )
     endif()
 endif()
+

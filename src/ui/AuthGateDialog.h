@@ -13,7 +13,9 @@ class AuthGateDialog : public QDialog
 public:
     enum class Mode {
         SetNewPassword,
-        EnterPassword
+        EnterPassword,
+        SetCustomPassword,
+        EnterCustomPassword
     };
 
     explicit AuthGateDialog(Mode mode, QWidget* parent = nullptr);
@@ -36,4 +38,3 @@ private:
     QPushButton* m_primaryButton = nullptr;
     QPushButton* m_cancelButton = nullptr;
 };
-

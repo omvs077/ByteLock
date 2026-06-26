@@ -17,6 +17,8 @@ const QString kOnboardingSubtitle =
     "This password protects every folder you lock by default.\n"
     "There is currently no recovery option if you forget it.";
 const QString kLoginSubtitle = "Enter your password to continue.";
+const QString kCustomSubtitle = "This password will only work for this folder.\nThe common password won't unlock it.";
+const QString kEnterCustomSubtitle = "Enter the password set specifically for this folder.";
 }
 
 AuthGateDialog::AuthGateDialog(Mode mode, QWidget* parent)
@@ -24,7 +26,8 @@ AuthGateDialog::AuthGateDialog(Mode mode, QWidget* parent)
     , m_mode(mode)
 {
     setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
-    setFixedSize(380, m_mode == Mode::SetNewPassword ? 380 : 280);
+    const bool needsConfirmField = (m_mode == Mode::SetNewPassword || m_mode == Mode::SetCustomPassword);
+    setFixedSize(380, needsConfirmField ? 380 : 280);
     setupUi();
 }
 
@@ -42,21 +45,35 @@ void AuthGateDialog::setupUi()
     layout->setContentsMargins(32, 32, 32, 32);
     layout->setSpacing(12);
 
-    auto* titleLabel = new QLabel(m_mode == Mode::SetNewPassword ? "Set Your Password" : "Enter Password", this);
+    QString titleText = "Enter Password";
+    QString subtitleText = kLoginSubtitle;
+    if (m_mode == Mode::SetNewPassword) {
+        titleText = "Set Your Password";
+        subtitleText = kOnboardingSubtitle;
+    } else if (m_mode == Mode::SetCustomPassword) {
+        titleText = "Set Custom Password";
+        subtitleText = kCustomSubtitle;
+    } else if (m_mode == Mode::EnterCustomPassword) {
+        titleText = "Enter Custom Password";
+        subtitleText = kEnterCustomSubtitle;
+    }
+
+    auto* titleLabel = new QLabel(titleText, this);
     titleLabel->setStyleSheet("font-size: 18px; font-weight: 700; color: #10193D;");
 
-    m_subtitleLabel = new QLabel(m_mode == Mode::SetNewPassword ? kOnboardingSubtitle : kLoginSubtitle, this);
+    m_subtitleLabel = new QLabel(subtitleText, this);
     m_subtitleLabel->setWordWrap(true);
     m_subtitleLabel->setStyleSheet("color: #8A93A6; font-size: 12px;");
 
+    const bool isEnterMode = (m_mode == Mode::EnterPassword || m_mode == Mode::EnterCustomPassword);
     m_passwordField = new PasswordLineEdit(this);
-    m_passwordField->setPlaceholderText(m_mode == Mode::SetNewPassword ? "New password" : "Password");
+    m_passwordField->setPlaceholderText(isEnterMode ? "Password" : "New password");
 
     layout->addWidget(titleLabel);
     layout->addWidget(m_subtitleLabel);
     layout->addWidget(m_passwordField);
 
-    if (m_mode == Mode::SetNewPassword) {
+    if (m_mode == Mode::SetNewPassword || m_mode == Mode::SetCustomPassword) {
         m_confirmField = new PasswordLineEdit(this);
         m_confirmField->setPlaceholderText("Confirm password");
         layout->addWidget(m_confirmField);
@@ -69,7 +86,7 @@ void AuthGateDialog::setupUi()
 
     layout->addStretch();
 
-    m_primaryButton = new QPushButton(m_mode == Mode::SetNewPassword ? "Set Password" : "Unlock", this);
+    m_primaryButton = new QPushButton(isEnterMode ? "Unlock" : "Set Password", this);
     m_primaryButton->setMinimumHeight(40);
     m_primaryButton->setCursor(Qt::PointingHandCursor);
     m_primaryButton->setStyleSheet(R"(
@@ -119,7 +136,7 @@ void AuthGateDialog::onPrimaryButtonClicked()
         return;
     }
 
-    if (m_mode == Mode::SetNewPassword) {
+    if (m_mode == Mode::SetNewPassword || m_mode == Mode::SetCustomPassword) {
         if (password != m_confirmField->text()) {
             m_errorLabel->setText("Passwords do not match.");
             return;
@@ -128,6 +145,12 @@ void AuthGateDialog::onPrimaryButtonClicked()
             m_errorLabel->setText("Password must be at least 8 characters.");
             return;
         }
+    }
+
+    if (m_mode == Mode::SetCustomPassword || m_mode == Mode::EnterCustomPassword) {
+        m_verifiedPassword = password;
+        accept();
+        return;
     }
 
     m_primaryButton->setEnabled(false);
@@ -171,5 +194,3 @@ void AuthGateDialog::onPrimaryButtonClicked()
 
     watcher->setFuture(future);
 }
-
-
