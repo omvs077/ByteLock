@@ -62,3 +62,16 @@ Write-Host "Created .gitignore and README.md" -ForegroundColor Green
 ## Future / v2 (not in current scope)
 
 - [ ] Hide Folder (Windows attribute-based hiding, separate from true encryption)
+
+## Major Upcoming Phase: Live-Mount Virtual Drive (WinFsp)
+
+Locked folders will mount as a real, transparently-encrypted virtual drive
+(via WinFsp) instead of a single fully-decrypted container - folders behave
+completely normally while unlocked, with encryption happening on the fly
+per file access. Locking = unmounting. This is a major new sub-system,
+comparable in scope to everything built so far, and depends on:
+- WinFsp driver dependency (installer must bundle/install it)
+- A filesystem driver layer implementing read/write/create callbacks
+  against our existing CryptoEngine
+
+Sequenced after current Dashboard/UX polish is complete and verified.
