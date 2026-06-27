@@ -1,5 +1,6 @@
 ﻿#include "ui/DashboardPage.h"
 #include "ui/AuthGateDialog.h"
+#include "ui/IconUtils.h"
 #include "viewmodel/MainViewModel.h"
 #include "engine/DefaultPasswordStore.h"
 
@@ -43,10 +44,11 @@ void DashboardPage::setupUi()
     layout->setSpacing(16);
 
     auto* cardsRow = new QHBoxLayout();
-    m_lockFolderCard = new QPushButton("Lock a Folder...", this);
-    m_unlockFolderCard = new QPushButton("Unlock a .blk Container...", this);
+    m_lockFolderCard = new QPushButton(loadSvgIcon(":/icons/lock.svg", QSize(22, 22)), "Lock a Folder...", this);
+    m_unlockFolderCard = new QPushButton(loadSvgIcon(":/icons/unlock.svg", QSize(22, 22)), "Unlock a Folder...", this);
     for (QPushButton* card : {m_lockFolderCard, m_unlockFolderCard}) {
         card->setMinimumHeight(64);
+        card->setIconSize(QSize(22, 22));
         card->setCursor(Qt::PointingHandCursor);
         card->setStyleSheet(R"(
             QPushButton {
@@ -101,12 +103,13 @@ void DashboardPage::refreshTable()
         m_table->setItem(row, kColLocation, new QTableWidgetItem(e.originalPath));
 
         auto* statusItem = new QTableWidgetItem(e.locked ? "Locked" : "Unlocked");
+        statusItem->setIcon(loadSvgIcon(e.locked ? ":/icons/lock_status.svg" : ":/icons/unlock_status.svg", QSize(16, 16)));
         statusItem->setForeground(QBrush(e.locked ? QColor("#F5A623") : QColor("#16A085")));
         m_table->setItem(row, kColStatus, statusItem);
 
         m_table->setItem(row, kColModified, new QTableWidgetItem(e.lastModified.toString("MMM d, yyyy h:mm AP")));
 
-        auto* menuButton = new QPushButton("...", m_table);
+        auto* menuButton = new QPushButton(loadSvgIcon(":/icons/dots.svg", QSize(20, 20)), "", m_table);
         menuButton->setCursor(Qt::PointingHandCursor);
         menuButton->setFixedWidth(40);
         connect(menuButton, &QPushButton::clicked, this, [this, menuButton, row]() {
@@ -166,7 +169,7 @@ void DashboardPage::startLockFlow(const QString& folderPath)
         mode = store.exists() ? AuthGateDialog::Mode::EnterPassword : AuthGateDialog::Mode::SetNewPassword;
     }
 
-    AuthGateDialog gate(mode, this);
+    AuthGateDialog gate(mode, "Lock", this);
     if (gate.exec() != QDialog::Accepted) return;
 
     m_pendingFolderPath = folderPath;
@@ -184,7 +187,7 @@ void DashboardPage::startUnlockFlow(const QString& containerPath, bool usesCusto
         mode = store.exists() ? AuthGateDialog::Mode::EnterPassword : AuthGateDialog::Mode::SetNewPassword;
     }
 
-    AuthGateDialog gate(mode, this);
+    AuthGateDialog gate(mode, "Unlock", this);
     if (gate.exec() != QDialog::Accepted) return;
 
     m_pendingContainerPath = containerPath;

@@ -8,13 +8,15 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent Svg)
 find_package(OpenSSL REQUIRED)
 
 set(SOURCES
     src/main.cpp
+    resources/resources.qrc
     src/ui/MainWindow.cpp
     src/ui/TitleBar.cpp
+    src/ui/IconUtils.cpp
     src/ui/Sidebar.cpp
     src/ui/DashboardPage.cpp
     src/ui/SettingsPage.cpp
@@ -31,6 +33,7 @@ set(SOURCES
 set(HEADERS
     src/ui/MainWindow.h
     src/ui/TitleBar.h
+    src/ui/IconUtils.h
     src/ui/Sidebar.h
     src/ui/DashboardPage.h
     src/ui/SettingsPage.h
@@ -51,6 +54,7 @@ add_executable(ByteLock WIN32 ${SOURCES} ${HEADERS})
 target_link_libraries(ByteLock PRIVATE
     Qt6::Widgets
     Qt6::Concurrent
+    Qt6::Svg
     OpenSSL::SSL
     OpenSSL::Crypto
 )
@@ -76,4 +80,3 @@ if(WIN32)
         )
     endif()
 endif()
-

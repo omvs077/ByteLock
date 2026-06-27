@@ -21,9 +21,10 @@ const QString kCustomSubtitle = "This password will only work for this folder.\n
 const QString kEnterCustomSubtitle = "Enter the password set specifically for this folder.";
 }
 
-AuthGateDialog::AuthGateDialog(Mode mode, QWidget* parent)
+AuthGateDialog::AuthGateDialog(Mode mode, const QString& actionLabel, QWidget* parent)
     : QDialog(parent)
     , m_mode(mode)
+    , m_actionLabel(actionLabel)
 {
     setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
     const bool needsConfirmField = (m_mode == Mode::SetNewPassword || m_mode == Mode::SetCustomPassword);
@@ -86,7 +87,7 @@ void AuthGateDialog::setupUi()
 
     layout->addStretch();
 
-    m_primaryButton = new QPushButton(isEnterMode ? "Unlock" : "Set Password", this);
+    m_primaryButton = new QPushButton(!m_actionLabel.isEmpty() ? m_actionLabel : (isEnterMode ? "Unlock" : "Set Password"), this);
     m_primaryButton->setMinimumHeight(40);
     m_primaryButton->setCursor(Qt::PointingHandCursor);
     m_primaryButton->setStyleSheet(R"(
@@ -194,3 +195,4 @@ void AuthGateDialog::onPrimaryButtonClicked()
 
     watcher->setFuture(future);
 }
+

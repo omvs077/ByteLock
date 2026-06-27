@@ -1,4 +1,5 @@
 ﻿#include "ui/Sidebar.h"
+#include "ui/IconUtils.h"
 
 #include <QButtonGroup>
 #include <QLabel>
@@ -29,9 +30,9 @@ Sidebar::Sidebar(QWidget* parent)
     layout->addWidget(taglineLabel);
     layout->addSpacing(24);
 
-    m_dashboardButton = new QPushButton("  Dashboard", this);
-    m_settingsButton = new QPushButton("  Settings", this);
-    m_aboutButton = new QPushButton("  About", this);
+    m_dashboardButton = new QPushButton(loadSvgIcon(":/icons/dashboard.svg", QSize(18, 18)), "  Dashboard", this);
+    m_settingsButton = new QPushButton(loadSvgIcon(":/icons/settings.svg", QSize(18, 18)), "  Settings", this);
+    m_aboutButton = new QPushButton(loadSvgIcon(":/icons/about.svg", QSize(18, 18)), "  About", this);
 
     m_buttonGroup = new QButtonGroup(this);
     m_buttonGroup->setExclusive(true);
@@ -42,6 +43,7 @@ Sidebar::Sidebar(QWidget* parent)
         btn->setObjectName("SidebarNavButton");
         btn->setCursor(Qt::PointingHandCursor);
         btn->setMinimumHeight(44);
+        btn->setIconSize(QSize(18, 18));
         m_buttonGroup->addButton(btn, id++);
         layout->addWidget(btn);
     }
@@ -96,4 +98,3 @@ void Sidebar::setActivePage(Page page)
         case Page::About: m_aboutButton->setChecked(true); break;
     }
 }
-

@@ -18,7 +18,7 @@ public:
         EnterCustomPassword
     };
 
-    explicit AuthGateDialog(Mode mode, QWidget* parent = nullptr);
+    explicit AuthGateDialog(Mode mode, const QString& actionLabel = QString(), QWidget* parent = nullptr);
 
     QString verifiedPassword() const { return m_verifiedPassword; }
 
@@ -29,6 +29,7 @@ private:
     void setupUi();
 
     Mode m_mode;
+    QString m_actionLabel;
     QString m_verifiedPassword;
 
     QLabel* m_subtitleLabel = nullptr;
@@ -38,3 +39,4 @@ private:
     QPushButton* m_primaryButton = nullptr;
     QPushButton* m_cancelButton = nullptr;
 };
+
