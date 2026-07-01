@@ -10,6 +10,23 @@ set(CMAKE_AUTORCC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent Svg)
 find_package(OpenSSL REQUIRED)
+if(DEFINED ENV{WINFSP_INC})
+    set(WINFSP_INC_DIR $ENV{WINFSP_INC})
+else()
+    set(WINFSP_INC_DIR "C:/Program Files (x86)/WinFsp/inc")
+endif()
+if(DEFINED ENV{WINFSP_LIB})
+    set(WINFSP_LIB_DIR $ENV{WINFSP_LIB})
+else()
+    set(WINFSP_LIB_DIR "C:/Program Files (x86)/WinFsp/lib")
+endif()
+
+add_executable(ByteLockFs src/fs/PassthroughFs.cpp)
+target_compile_options(ByteLockFs PRIVATE /Zc:strictStrings-)
+target_include_directories(ByteLockFs PRIVATE "${WINFSP_INC_DIR}")
+target_link_libraries(ByteLockFs PRIVATE "${WINFSP_LIB_DIR}/winfsp-x64.lib" delayimp)
+target_link_options(ByteLockFs PRIVATE "/DELAYLOAD:winfsp-x64.dll")
+target_compile_definitions(ByteLockFs PRIVATE UNICODE _UNICODE)
 
 set(SOURCES
     src/main.cpp
