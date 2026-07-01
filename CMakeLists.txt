@@ -21,12 +21,11 @@ else()
     set(WINFSP_LIB_DIR "C:/Program Files (x86)/WinFsp/lib")
 endif()
 
-add_executable(ByteLockFs src/fs/PassthroughFs.cpp)
+add_executable(ByteLockFs src/fs/PassthroughFs.cpp src/fs/FsCrypto.cpp)
 target_compile_options(ByteLockFs PRIVATE /Zc:strictStrings-)
-target_include_directories(ByteLockFs PRIVATE "${WINFSP_INC_DIR}")
-target_link_libraries(ByteLockFs PRIVATE "${WINFSP_LIB_DIR}/winfsp-x64.lib" delayimp)
-target_link_options(ByteLockFs PRIVATE "/DELAYLOAD:winfsp-x64.dll")
 target_compile_definitions(ByteLockFs PRIVATE UNICODE _UNICODE)
+target_include_directories(ByteLockFs PRIVATE "${WINFSP_INC_DIR}")
+target_link_libraries(ByteLockFs PRIVATE "${WINFSP_LIB_DIR}/winfsp-x64.lib" delayimp OpenSSL::Crypto)
 
 set(SOURCES
     src/main.cpp

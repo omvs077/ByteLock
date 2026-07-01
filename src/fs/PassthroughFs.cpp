@@ -1,26 +1,6 @@
-/*
- * ByteLockFs - Phase 5 Step 2: minimal passthrough filesystem.
- *
- * Adapted from WinFsp's own official "passthrough-cpp" sample
- * (winfsp/winfsp, tst/passthrough-cpp/passthrough-cpp.cpp), fetched directly
- * from the upstream repository to ground this in real, current, tested
- * signatures rather than guessing from memory across a dozen callbacks.
- *
- * This version has zero encryption logic - it just transparently maps a
- * mounted drive letter onto a real backing folder on disk. The goal is
- * purely to prove the WinFsp toolchain, build setup, and mount/unmount
- * lifecycle all work before any crypto gets layered in.
- *
- * NOTE: the upstream fetch was cut off right at the very end of the file
- * (the tail of the usage string, OnStop, and wmain). That tail is extremely
- * standard boilerplate identical across nearly every WinFsp sample, so it's
- * reconstructed from that well-known pattern rather than verified fresh
- * source - everything above it (the actual filesystem logic) is adapted
- * directly from the real, current upstream file.
- */
-
 #include <winfsp/winfsp.hpp>
 #include <strsafe.h>
+#include "FsCrypto.h"
 
 #define PROGNAME                        "bytelockfs"
 #define ALLOCATION_UNIT                 4096
@@ -52,7 +32,7 @@ protected:
 
     NTSTATUS GetSecurityByName(
         PWSTR FileName,
-        PUINT32 PFileAttributes/* or ReparsePointIndex */,
+        PUINT32 PFileAttributes,
         PSECURITY_DESCRIPTOR SecurityDescriptor,
         SIZE_T* PSecurityDescriptorSize);
 
@@ -258,10 +238,15 @@ NTSTATUS Blfs::GetFileInfoInternal(HANDLE Handle, FileInfo* FileInfo)
     if (!GetFileInformationByHandle(Handle, &ByHandleFileInfo))
         return NtStatusFromWin32(GetLastError());
 
+    UINT64 CipherSize =
+        ((UINT64)ByHandleFileInfo.nFileSizeHigh << 32) | (UINT64)ByHandleFileInfo.nFileSizeLow;
+
     FileInfo->FileAttributes = ByHandleFileInfo.dwFileAttributes;
     FileInfo->ReparseTag = 0;
-    FileInfo->FileSize =
-        ((UINT64)ByHandleFileInfo.nFileSizeHigh << 32) | (UINT64)ByHandleFileInfo.nFileSizeLow;
+    if (FileInfo->FileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+        FileInfo->FileSize = CipherSize;
+    else
+        FileInfo->FileSize = FsCrypto::PlainSizeFromCipherSize(CipherSize);
     FileInfo->AllocationSize = (FileInfo->FileSize + ALLOCATION_UNIT - 1)
         / ALLOCATION_UNIT * ALLOCATION_UNIT;
     FileInfo->CreationTime = ((PLARGE_INTEGER)&ByHandleFileInfo.ftCreationTime)->QuadPart;
@@ -313,7 +298,7 @@ NTSTATUS Blfs::GetVolumeInfo(VolumeInfo* Info)
 
 NTSTATUS Blfs::GetSecurityByName(
     PWSTR FileName,
-    PUINT32 PFileAttributes/* or ReparsePointIndex */,
+    PUINT32 PFileAttributes,
     PSECURITY_DESCRIPTOR SecurityDescriptor,
     SIZE_T* PSecurityDescriptorSize)
 {
@@ -536,14 +521,60 @@ NTSTATUS Blfs::Read(
     PULONG PBytesTransferred)
 {
     HANDLE Handle = HandleFromFileDesc(FileDesc);
-    OVERLAPPED Overlapped = { 0 };
+    LARGE_INTEGER CipherSize;
 
-    Overlapped.Offset = (DWORD)Offset;
-    Overlapped.OffsetHigh = (DWORD)(Offset >> 32);
-
-    if (!ReadFile(Handle, Buffer, Length, PBytesTransferred, &Overlapped))
+    if (!GetFileSizeEx(Handle, &CipherSize))
         return NtStatusFromWin32(GetLastError());
 
+    UINT64 PlainSize = FsCrypto::PlainSizeFromCipherSize((UINT64)CipherSize.QuadPart);
+
+    if (Offset >= PlainSize)
+    {
+        *PBytesTransferred = 0;
+        return STATUS_SUCCESS;
+    }
+    if (Offset + Length > PlainSize)
+        Length = (ULONG)(PlainSize - Offset);
+
+    ULONG Transferred = 0;
+    UINT64 CurOffset = Offset;
+    PUINT8 Out = (PUINT8)Buffer;
+
+    static thread_local uint8_t CipherBuf[FsCrypto::CipherChunkMax];
+    static thread_local uint8_t PlainBuf[FsCrypto::ChunkSize];
+
+    while (Transferred < Length)
+    {
+        UINT64 Idx = CurOffset / FsCrypto::ChunkSize;
+        UINT32 PlainChunkLen = FsCrypto::PlainChunkLen(PlainSize, Idx);
+        if (0 == PlainChunkLen)
+            break;
+
+        UINT64 CipherOff = FsCrypto::ChunkCipherOffset(Idx);
+        UINT32 CipherLen = PlainChunkLen + FsCrypto::ChunkOverhead;
+
+        OVERLAPPED Ov = { 0 };
+        Ov.Offset = (DWORD)CipherOff;
+        Ov.OffsetHigh = (DWORD)(CipherOff >> 32);
+        DWORD Got = 0;
+        if (!ReadFile(Handle, CipherBuf, CipherLen, &Got, &Ov) || Got != CipherLen)
+            return NtStatusFromWin32(GetLastError());
+
+        if (!FsCrypto::DecryptChunk(CipherBuf, CipherLen, PlainBuf))
+            return STATUS_UNSUCCESSFUL;
+
+        UINT64 ChunkPlainStart = Idx * FsCrypto::ChunkSize;
+        UINT64 WithinChunk = CurOffset - ChunkPlainStart;
+        UINT32 Avail = PlainChunkLen - (UINT32)WithinChunk;
+        UINT32 Remaining = Length - Transferred;
+        UINT32 ToCopy = Avail < Remaining ? Avail : Remaining;
+
+        memcpy(Out + Transferred, PlainBuf + WithinChunk, ToCopy);
+        Transferred += ToCopy;
+        CurOffset += ToCopy;
+    }
+
+    *PBytesTransferred = Transferred;
     return STATUS_SUCCESS;
 }
 
@@ -559,27 +590,138 @@ NTSTATUS Blfs::Write(
     FileInfo* FileInfo)
 {
     HANDLE Handle = HandleFromFileDesc(FileDesc);
-    LARGE_INTEGER FileSize;
-    OVERLAPPED Overlapped = { 0 };
+    LARGE_INTEGER CipherSize;
+
+    if (!GetFileSizeEx(Handle, &CipherSize))
+        return NtStatusFromWin32(GetLastError());
+
+    UINT64 PlainSize = FsCrypto::PlainSizeFromCipherSize((UINT64)CipherSize.QuadPart);
+
+    if (WriteToEndOfFile)
+        Offset = PlainSize;
 
     if (ConstrainedIo)
     {
-        if (!GetFileSizeEx(Handle, &FileSize))
-            return NtStatusFromWin32(GetLastError());
-
-        if (Offset >= (UINT64)FileSize.QuadPart)
-            return STATUS_SUCCESS;
-
-        if (Offset + Length > (UINT64)FileSize.QuadPart)
-            Length = (ULONG)((UINT64)FileSize.QuadPart - Offset);
+        if (Offset >= PlainSize)
+        {
+            *PBytesTransferred = 0;
+            return GetFileInfoInternal(Handle, FileInfo);
+        }
+        if (Offset + Length > PlainSize)
+            Length = (ULONG)(PlainSize - Offset);
     }
 
-    Overlapped.Offset = (DWORD)Offset;
-    Overlapped.OffsetHigh = (DWORD)(Offset >> 32);
+    static thread_local uint8_t PlainBuf[FsCrypto::ChunkSize];
+    static thread_local uint8_t CipherBuf[FsCrypto::CipherChunkMax];
+    static thread_local uint8_t CipherOutBuf[FsCrypto::CipherChunkMax];
 
-    if (!WriteFile(Handle, Buffer, Length, PBytesTransferred, &Overlapped))
-        return NtStatusFromWin32(GetLastError());
+    // gap-fill: extend with zero chunks if Offset lands beyond current EOF non-contiguously
+    if (Offset > PlainSize)
+    {
+        UINT64 TargetChunkIdx = Offset / FsCrypto::ChunkSize;
 
+        if (PlainSize > 0)
+        {
+            UINT64 OldLastChunkIdx = (PlainSize - 1) / FsCrypto::ChunkSize;
+            UINT32 OldLastLen = FsCrypto::PlainChunkLen(PlainSize, OldLastChunkIdx);
+
+            if (OldLastLen < FsCrypto::ChunkSize && TargetChunkIdx > OldLastChunkIdx)
+            {
+                memset(PlainBuf, 0, FsCrypto::ChunkSize);
+                UINT64 Co = FsCrypto::ChunkCipherOffset(OldLastChunkIdx);
+                UINT32 Cl = OldLastLen + FsCrypto::ChunkOverhead;
+                OVERLAPPED Ov = { 0 };
+                Ov.Offset = (DWORD)Co;
+                Ov.OffsetHigh = (DWORD)(Co >> 32);
+                DWORD Got = 0;
+                if (!ReadFile(Handle, CipherBuf, Cl, &Got, &Ov) || Got != Cl)
+                    return NtStatusFromWin32(GetLastError());
+                if (!FsCrypto::DecryptChunk(CipherBuf, Cl, PlainBuf))
+                    return STATUS_UNSUCCESSFUL;
+                if (!FsCrypto::EncryptChunk(PlainBuf, FsCrypto::ChunkSize, CipherOutBuf))
+                    return STATUS_UNSUCCESSFUL;
+                DWORD Wr = 0;
+                if (!WriteFile(Handle, CipherOutBuf, FsCrypto::CipherChunkMax, &Wr, &Ov)
+                    || Wr != FsCrypto::CipherChunkMax)
+                    return NtStatusFromWin32(GetLastError());
+            }
+        }
+
+        UINT64 StartGap = (PlainSize == 0) ? 0 : ((PlainSize - 1) / FsCrypto::ChunkSize) + 1;
+        for (UINT64 G = StartGap; G < TargetChunkIdx; G++)
+        {
+            memset(PlainBuf, 0, FsCrypto::ChunkSize);
+            if (!FsCrypto::EncryptChunk(PlainBuf, FsCrypto::ChunkSize, CipherOutBuf))
+                return STATUS_UNSUCCESSFUL;
+            UINT64 Co = FsCrypto::ChunkCipherOffset(G);
+            OVERLAPPED Ov = { 0 };
+            Ov.Offset = (DWORD)Co;
+            Ov.OffsetHigh = (DWORD)(Co >> 32);
+            DWORD Wr = 0;
+            if (!WriteFile(Handle, CipherOutBuf, FsCrypto::CipherChunkMax, &Wr, &Ov)
+                || Wr != FsCrypto::CipherChunkMax)
+                return NtStatusFromWin32(GetLastError());
+        }
+    }
+
+    UINT64 NewPlainSize = PlainSize;
+    if (Offset + Length > NewPlainSize)
+        NewPlainSize = Offset + Length;
+
+    ULONG Transferred = 0;
+    UINT64 CurOffset = Offset;
+    const uint8_t* In = (const uint8_t*)Buffer;
+
+    while (Transferred < Length)
+    {
+        UINT64 Idx = CurOffset / FsCrypto::ChunkSize;
+        UINT64 ChunkPlainStart = Idx * FsCrypto::ChunkSize;
+        UINT32 ExistingPlainLen = FsCrypto::PlainChunkLen(PlainSize, Idx);
+        UINT32 NewPlainLen = FsCrypto::PlainChunkLen(NewPlainSize, Idx);
+
+        memset(PlainBuf, 0, FsCrypto::ChunkSize);
+
+        if (ExistingPlainLen > 0)
+        {
+            UINT64 Co = FsCrypto::ChunkCipherOffset(Idx);
+            UINT32 Cl = ExistingPlainLen + FsCrypto::ChunkOverhead;
+            OVERLAPPED Ov = { 0 };
+            Ov.Offset = (DWORD)Co;
+            Ov.OffsetHigh = (DWORD)(Co >> 32);
+            DWORD Got = 0;
+            if (!ReadFile(Handle, CipherBuf, Cl, &Got, &Ov) || Got != Cl)
+                return NtStatusFromWin32(GetLastError());
+            if (!FsCrypto::DecryptChunk(CipherBuf, Cl, PlainBuf))
+                return STATUS_UNSUCCESSFUL;
+        }
+
+        UINT64 WithinChunk = CurOffset - ChunkPlainStart;
+        UINT32 Avail = FsCrypto::ChunkSize - (UINT32)WithinChunk;
+        UINT32 Remaining = Length - Transferred;
+        UINT32 ToCopy = Remaining < Avail ? Remaining : Avail;
+        memcpy(PlainBuf + WithinChunk, In + Transferred, ToCopy);
+
+        UINT32 FinalPlainLen = NewPlainLen;
+        if (0 == FinalPlainLen)
+            FinalPlainLen = (UINT32)(WithinChunk + ToCopy);
+
+        if (!FsCrypto::EncryptChunk(PlainBuf, FinalPlainLen, CipherOutBuf))
+            return STATUS_UNSUCCESSFUL;
+
+        UINT64 Co = FsCrypto::ChunkCipherOffset(Idx);
+        UINT32 OutLen = FinalPlainLen + FsCrypto::ChunkOverhead;
+        OVERLAPPED Ov2 = { 0 };
+        Ov2.Offset = (DWORD)Co;
+        Ov2.OffsetHigh = (DWORD)(Co >> 32);
+        DWORD Written = 0;
+        if (!WriteFile(Handle, CipherOutBuf, OutLen, &Written, &Ov2) || Written != OutLen)
+            return NtStatusFromWin32(GetLastError());
+
+        Transferred += ToCopy;
+        CurOffset += ToCopy;
+    }
+
+    *PBytesTransferred = Transferred;
     return GetFileInfoInternal(Handle, FileInfo);
 }
 
@@ -646,22 +788,88 @@ NTSTATUS Blfs::SetFileSize(
     FileInfo* FileInfo)
 {
     HANDLE Handle = HandleFromFileDesc(FileDesc);
-    FILE_ALLOCATION_INFO AllocationInfo;
-    FILE_END_OF_FILE_INFO EndOfFileInfo;
 
     if (SetAllocationSize)
+        return GetFileInfoInternal(Handle, FileInfo);
+
+    LARGE_INTEGER CipherSize;
+    if (!GetFileSizeEx(Handle, &CipherSize))
+        return NtStatusFromWin32(GetLastError());
+
+    UINT64 PlainSize = FsCrypto::PlainSizeFromCipherSize((UINT64)CipherSize.QuadPart);
+
+    if (NewSize == PlainSize)
+        return GetFileInfoInternal(Handle, FileInfo);
+
+    if (NewSize < PlainSize)
     {
-        AllocationInfo.AllocationSize.QuadPart = NewSize;
-        if (!SetFileInformationByHandle(Handle,
-            FileAllocationInfo, &AllocationInfo, sizeof AllocationInfo))
+        static thread_local uint8_t PlainBuf[FsCrypto::ChunkSize];
+        static thread_local uint8_t CipherBuf[FsCrypto::CipherChunkMax];
+        static thread_local uint8_t CipherOutBuf[FsCrypto::CipherChunkMax];
+
+        UINT64 NewCipherEOF = 0;
+
+        if (NewSize > 0)
+        {
+            UINT64 NewLastChunkIdx = (NewSize - 1) / FsCrypto::ChunkSize;
+            UINT32 NewLastLen = FsCrypto::PlainChunkLen(NewSize, NewLastChunkIdx);
+            UINT32 OldLen = FsCrypto::PlainChunkLen(PlainSize, NewLastChunkIdx);
+
+            memset(PlainBuf, 0, FsCrypto::ChunkSize);
+            if (OldLen > 0)
+            {
+                UINT64 Co = FsCrypto::ChunkCipherOffset(NewLastChunkIdx);
+                UINT32 Cl = OldLen + FsCrypto::ChunkOverhead;
+                OVERLAPPED Ov = { 0 };
+                Ov.Offset = (DWORD)Co;
+                Ov.OffsetHigh = (DWORD)(Co >> 32);
+                DWORD Got = 0;
+                if (!ReadFile(Handle, CipherBuf, Cl, &Got, &Ov) || Got != Cl)
+                    return NtStatusFromWin32(GetLastError());
+                if (!FsCrypto::DecryptChunk(CipherBuf, Cl, PlainBuf))
+                    return STATUS_UNSUCCESSFUL;
+            }
+
+            if (!FsCrypto::EncryptChunk(PlainBuf, NewLastLen, CipherOutBuf))
+                return STATUS_UNSUCCESSFUL;
+
+            UINT64 Co = FsCrypto::ChunkCipherOffset(NewLastChunkIdx);
+            UINT32 OutLen = NewLastLen + FsCrypto::ChunkOverhead;
+            OVERLAPPED Ov2 = { 0 };
+            Ov2.Offset = (DWORD)Co;
+            Ov2.OffsetHigh = (DWORD)(Co >> 32);
+            DWORD Wr = 0;
+            if (!WriteFile(Handle, CipherOutBuf, OutLen, &Wr, &Ov2) || Wr != OutLen)
+                return NtStatusFromWin32(GetLastError());
+
+            NewCipherEOF = Co + OutLen;
+        }
+
+        FILE_END_OF_FILE_INFO Eofi;
+        Eofi.EndOfFile.QuadPart = (LONGLONG)NewCipherEOF;
+        if (!SetFileInformationByHandle(Handle, FileEndOfFileInfo, &Eofi, sizeof Eofi))
             return NtStatusFromWin32(GetLastError());
     }
     else
     {
-        EndOfFileInfo.EndOfFile.QuadPart = NewSize;
-        if (!SetFileInformationByHandle(Handle,
-            FileEndOfFileInfo, &EndOfFileInfo, sizeof EndOfFileInfo))
-            return NtStatusFromWin32(GetLastError());
+        UINT64 GrowBy = NewSize - PlainSize;
+        UINT64 Written = 0;
+        static thread_local uint8_t Zero[FsCrypto::ChunkSize];
+        memset(Zero, 0, sizeof Zero);
+
+        while (Written < GrowBy)
+        {
+            ULONG Chunk = (ULONG)((GrowBy - Written) > FsCrypto::ChunkSize
+                ? FsCrypto::ChunkSize : (GrowBy - Written));
+            ULONG Bt = 0;
+            NTSTATUS St = Write(FileNode, FileDesc, Zero, PlainSize + Written, Chunk,
+                FALSE, FALSE, &Bt, FileInfo);
+            if (!NT_SUCCESS(St))
+                return St;
+            if (0 == Bt)
+                break;
+            Written += Bt;
+        }
     }
 
     return GetFileInfoInternal(Handle, FileInfo);
@@ -808,8 +1016,13 @@ NTSTATUS Blfs::ReadDirectoryEntry(
     DirInfo->Size = (UINT16)(FIELD_OFFSET(Blfs::DirInfo, FileNameBuf) + Length * sizeof(WCHAR));
     DirInfo->FileInfo.FileAttributes = FindData.dwFileAttributes;
     DirInfo->FileInfo.ReparseTag = 0;
-    DirInfo->FileInfo.FileSize =
+
+    UINT64 CipherSize =
         ((UINT64)FindData.nFileSizeHigh << 32) | (UINT64)FindData.nFileSizeLow;
+    if (FindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+        DirInfo->FileInfo.FileSize = CipherSize;
+    else
+        DirInfo->FileInfo.FileSize = FsCrypto::PlainSizeFromCipherSize(CipherSize);
     DirInfo->FileInfo.AllocationSize = (DirInfo->FileInfo.FileSize + ALLOCATION_UNIT - 1)
         / ALLOCATION_UNIT * ALLOCATION_UNIT;
     DirInfo->FileInfo.CreationTime = ((PLARGE_INTEGER)&FindData.ftCreationTime)->QuadPart;
@@ -889,6 +1102,7 @@ NTSTATUS BlfsService::OnStart(ULONG argc, PWSTR* argv)
     PWSTR VolumePrefix = 0;
     PWSTR PassThrough = 0;
     PWSTR MountPoint = 0;
+    PWSTR Key = 0;
     NTSTATUS Result;
 
     for (argp = argv + 1, arge = argv + argc; arge > argp; argp++)
@@ -905,6 +1119,9 @@ NTSTATUS BlfsService::OnStart(ULONG argc, PWSTR* argv)
             break;
         case L'D':
             argtos(DebugLogFile);
+            break;
+        case L'k':
+            argtos(Key);
             break;
         case L'm':
             argtos(MountPoint);
@@ -923,8 +1140,10 @@ NTSTATUS BlfsService::OnStart(ULONG argc, PWSTR* argv)
     if (arge > argp)
         goto usage;
 
-    if (0 == PassThrough || 0 == MountPoint)
+    if (0 == PassThrough || 0 == MountPoint || 0 == Key)
         goto usage;
+
+    FsCrypto::SetKeyFromPassword(Key);
 
     EnableBackupRestorePrivileges();
 
@@ -968,6 +1187,7 @@ usage:
         "options:\n"
         "    -d DebugFlags       [-1: enable all debug logs]\n"
         "    -D DebugLogFile     [file path; use - for stderr]\n"
+        "    -k Password         [encryption password]\n"
         "    -p Directory        [directory to expose as a drive]\n"
         "    -m MountPoint       [X: or *: for first available drive letter]\n";
 
@@ -990,4 +1210,3 @@ int wmain(int argc, wchar_t** argv)
     BlfsService Service;
     return Service.Run();
 }
-
