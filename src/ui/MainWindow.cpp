@@ -2,6 +2,7 @@
 
 #include <QCoreApplication>
 #include <QElapsedTimer>
+#include <QFile>
 #include <QFileDialog>
 #include <QInputDialog>
 #include <QLabel>
@@ -14,13 +15,16 @@
 
 #include "engine/CryptoEngine.h"
 #include "engine/FolderPacker.h"
+#include <windows.h>
 
 using namespace bytelock;
 
-MainWindow::MainWindow(QWidget* parent)
+MainWindow::MainWindow(const QString& startupContainerPath, QWidget* parent)
     : QMainWindow(parent)
+    , m_startupContainerPath(startupContainerPath)
 {
     setupUi();
+    if (!m_startupContainerPath.isEmpty()) showStartupUnlockPrompt();
 }
 
 MainWindow::~MainWindow() = default;
@@ -160,6 +164,8 @@ void MainWindow::onLockFolderClicked()
         return;
     }
 
+    QFile(folder + ".blocked").open(QIODevice::WriteOnly);
+    SetFileAttributesW(containerPath.toStdWString().c_str(), FILE_ATTRIBUTE_HIDDEN);
     m_statusLabel->setText("Folder locked successfully.\nContainer: " + containerPath);
 }
 
@@ -167,7 +173,11 @@ void MainWindow::onUnlockFolderClicked()
 {
     QString containerPath = QFileDialog::getOpenFileName(this, "Select .blk container to unlock", "", "ByteLock Container (*.blk)");
     if (containerPath.isEmpty()) return;
+    unlockContainer(containerPath);
+}
 
+void MainWindow::unlockContainer(const QString& containerPath)
+{
     auto saltResult = FolderPacker::peekContainerSalt(containerPath.toStdString());
     if (!saltResult) {
         m_statusLabel->setText("FAILED: " + QString::fromStdString(saltResult.errorMessage()));
@@ -199,5 +209,16 @@ void MainWindow::onUnlockFolderClicked()
         return;
     }
 
+    QFile::remove(destination + ".blocked");
+
     m_statusLabel->setText("Folder unlocked successfully.\nRestored to: " + destination);
 }
+
+void MainWindow::showStartupUnlockPrompt()
+{
+    QString blk = m_startupContainerPath;
+    if (blk.endsWith(".blocked")) blk.chop(8);
+    unlockContainer(blk + ".blk");
+    close();
+}
+

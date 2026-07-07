@@ -10,7 +10,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget* parent = nullptr);
+    explicit MainWindow(const QString& startupContainerPath = QString(), QWidget* parent = nullptr);
     ~MainWindow() override;
 
 private slots:
@@ -27,4 +27,8 @@ private:
     QPushButton* m_selfTestButton = nullptr;
     QPushButton* m_lockFolderButton = nullptr;
     QPushButton* m_unlockFolderButton = nullptr;
+    QString m_startupContainerPath;
+    void showStartupUnlockPrompt();
+    void unlockContainer(const QString& containerPath);
 };
+

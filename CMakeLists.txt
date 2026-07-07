@@ -14,6 +14,7 @@ find_package(OpenSSL REQUIRED)
 set(SOURCES
     src/main.cpp
     src/ui/MainWindow.cpp
+    resources/app.rc
     src/engine/CryptoEngine.cpp
     src/engine/FolderPacker.cpp
 )
@@ -53,4 +54,5 @@ if(WIN32)
         )
     endif()
 endif()
+
 
