@@ -19,12 +19,13 @@
 
 using namespace bytelock;
 
-MainWindow::MainWindow(const QString& startupContainerPath, QWidget* parent)
+MainWindow::MainWindow(const QString& startupContainerPath, QWidget* parent, const QString& lockFolderPath)
     : QMainWindow(parent)
     , m_startupContainerPath(startupContainerPath)
 {
     setupUi();
     if (!m_startupContainerPath.isEmpty()) showStartupUnlockPrompt();
+    if (!lockFolderPath.isEmpty()) { lockContainer(lockFolderPath); close(); }
 }
 
 MainWindow::~MainWindow() = default;
@@ -135,7 +136,11 @@ void MainWindow::onLockFolderClicked()
 {
     QString folder = QFileDialog::getExistingDirectory(this, "Select folder to lock");
     if (folder.isEmpty()) return;
+    lockContainer(folder);
+}
 
+void MainWindow::lockContainer(const QString& folder)
+{
     bool ok = false;
     QString password = QInputDialog::getText(this, "Set Password", "Enter a password to lock this folder:",
                                               QLineEdit::Password, "", &ok);
@@ -221,4 +226,3 @@ void MainWindow::showStartupUnlockPrompt()
     unlockContainer(blk + ".blk");
     close();
 }
-
