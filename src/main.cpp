@@ -32,8 +32,11 @@ int main(int argc, char* argv[])
         }
     }
 
+    MasterConfig::repairOrphanedFolders();
+
     MainWindow window(startupPath, nullptr, QString());
     if (startupPath.isEmpty()) window.show();
 
     return app.exec();
 }
+

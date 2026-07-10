@@ -6,6 +6,8 @@
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
+#include <QDir>
 
 #include <openssl/crypto.h>
 #include <windows.h>
@@ -165,4 +167,82 @@ QByteArray MasterConfig::wrapEscrowKeyWithRecoveryKey(const QString& recoveryKey
     out.append(reinterpret_cast<const char*>(salt.value().data()), static_cast<int>(salt.value().size()));
     out.append(reinterpret_cast<const char*>(packed.value().data()), static_cast<int>(packed.value().size()));
     return out.toBase64();
+}
+
+
+void MasterConfig::trackLockedFolder(const QString& folderPath)
+{
+    QJsonObject root;
+    QFile inFile(configPath());
+    if (inFile.open(QIODevice::ReadOnly)) {
+        root = QJsonDocument::fromJson(inFile.readAll()).object();
+        inFile.close();
+    }
+    QJsonArray folders = root["locked_folders"].toArray();
+    bool alreadyTracked = false;
+    for (const auto& v : folders) {
+        if (v.toString() == folderPath) { alreadyTracked = true; break; }
+    }
+    if (!alreadyTracked) folders.append(folderPath);
+    root["locked_folders"] = folders;
+
+    QFile outFile(configPath());
+    if (outFile.open(QIODevice::WriteOnly)) {
+        outFile.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    }
+}
+
+void MasterConfig::untrackLockedFolder(const QString& folderPath)
+{
+    QFile inFile(configPath());
+    if (!inFile.open(QIODevice::ReadOnly)) return;
+    QJsonObject root = QJsonDocument::fromJson(inFile.readAll()).object();
+    inFile.close();
+
+    QJsonArray folders = root["locked_folders"].toArray();
+    QJsonArray updated;
+    for (const auto& v : folders) {
+        if (v.toString() != folderPath) updated.append(v);
+    }
+    root["locked_folders"] = updated;
+
+    QFile outFile(configPath());
+    if (outFile.open(QIODevice::WriteOnly)) {
+        outFile.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    }
+}
+
+void MasterConfig::repairOrphanedFolders()
+{
+    QFile inFile(configPath());
+    if (!inFile.open(QIODevice::ReadOnly)) return;
+    QJsonObject root = QJsonDocument::fromJson(inFile.readAll()).object();
+    inFile.close();
+
+    QJsonArray folders = root["locked_folders"].toArray();
+    QJsonArray stillValid;
+
+    for (const auto& v : folders) {
+        QString folderPath = v.toString();
+        QString containerPath = folderPath + ".blk";
+        QString decoyPath = folderPath + ".blocked";
+
+        if (!QFile::exists(containerPath)) {
+            continue;
+        }
+
+        if (!QFile::exists(decoyPath)) {
+            QFile decoy(decoyPath);
+            decoy.open(QIODevice::WriteOnly);
+        }
+
+        stillValid.append(folderPath);
+    }
+
+    root["locked_folders"] = stillValid;
+
+    QFile outFile(configPath());
+    if (outFile.open(QIODevice::WriteOnly)) {
+        outFile.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    }
 }

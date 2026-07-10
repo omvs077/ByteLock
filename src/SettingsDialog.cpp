@@ -92,6 +92,7 @@ void SettingsDialog::onRecoverFolderClicked()
     }
 
     QFile::remove(QString(containerPath).replace(".blk", ".blocked"));
+    MasterConfig::untrackLockedFolder(destination);
     m_statusLabel->setText("Folder recovered successfully via Master Recovery.");
 }
 

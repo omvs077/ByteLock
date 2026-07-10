@@ -175,6 +175,7 @@ void MainWindow::lockContainer(const QString& folder)
     }
 
     QFile(folder + ".blocked").open(QIODevice::WriteOnly);
+    MasterConfig::trackLockedFolder(folder);
     SetFileAttributesW(containerPath.toStdWString().c_str(), FILE_ATTRIBUTE_HIDDEN);
     auto escrowKey = MasterConfig::getEscrowKey();
     if (!escrowKey.empty()) {
@@ -234,6 +235,7 @@ void MainWindow::unlockContainer(const QString& containerPath)
     }
 
     QFile::remove(destination + ".blocked");
+    MasterConfig::untrackLockedFolder(destination);
 
     m_statusLabel->setText("Folder unlocked successfully.\nRestored to: " + destination);
 }

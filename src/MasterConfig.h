@@ -11,6 +11,9 @@ namespace MasterConfig {
     QString configPath();
     bytelock::SecureBytes getEscrowKey();
     QByteArray wrapEscrowKeyWithRecoveryKey(const QString& recoveryKey);
+    void trackLockedFolder(const QString& folderPath);
+    void untrackLockedFolder(const QString& folderPath);
+    void repairOrphanedFolders();
 }
 
 
