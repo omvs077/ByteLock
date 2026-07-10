@@ -3,6 +3,8 @@
 
 class QLabel;
 class QPushButton;
+class QListWidget;
+class QStackedWidget;
 
 class SettingsDialog : public QDialog {
     Q_OBJECT
@@ -14,7 +16,14 @@ private slots:
     void onExportTokenClicked();
 
 private:
+    QWidget* buildMasterRecoveryPage();
+    QWidget* buildGeneralPage();
+    QWidget* buildSecurityPage();
+    QWidget* buildAboutPage();
+
     QLabel* m_statusLabel = nullptr;
     QPushButton* m_recoverButton = nullptr;
     QPushButton* m_exportButton = nullptr;
+    QListWidget* m_sidebar = nullptr;
+    QStackedWidget* m_stack = nullptr;
 };

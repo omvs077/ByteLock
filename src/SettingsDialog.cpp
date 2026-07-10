@@ -5,14 +5,22 @@
 #include "engine/SecureBytes.h"
 
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
+#include <QCheckBox>
+#include <QComboBox>
+#include <QListWidget>
+#include <QStackedWidget>
 #include <QFileDialog>
 #include <QInputDialog>
 #include <QLineEdit>
 #include <QFile>
 #include <QTextStream>
 #include <QMessageBox>
+#include <QFrame>
+#include <QIcon>
+#include <QStyle>
 
 using namespace bytelock;
 
@@ -20,22 +28,206 @@ SettingsDialog::SettingsDialog(QWidget* parent)
     : QDialog(parent)
 {
     setWindowTitle("ByteLock — Settings");
+    setWindowIcon(QIcon(":/icons/app.ico"));
     setModal(true);
-    resize(420, 200);
+    resize(620, 440);
 
-    auto* layout = new QVBoxLayout(this);
+    auto* outer = new QHBoxLayout(this);
+    outer->setContentsMargins(0, 0, 0, 0);
+    outer->setSpacing(0);
 
-    m_statusLabel = new QLabel("Master Recovery Settings", this);
-    m_statusLabel->setWordWrap(true);
-    layout->addWidget(m_statusLabel);
+    m_sidebar = new QListWidget(this);
+    m_sidebar->setFixedWidth(170);
+    m_sidebar->setIconSize(QSize(20, 20));
 
-    m_recoverButton = new QPushButton("Recover a Folder...", this);
-    m_exportButton = new QPushButton("Export Recovery Token...", this);
+    auto addItem = [&](QStyle::StandardPixmap icon, const QString& text) {
+        auto* item = new QListWidgetItem(style()->standardIcon(icon), text);
+        m_sidebar->addItem(item);
+    };
+    addItem(QStyle::SP_DialogYesButton, "Master Recovery");
+    addItem(QStyle::SP_FileDialogDetailedView, "General");
+    addItem(QStyle::SP_MessageBoxInformation, "Security");
+    addItem(QStyle::SP_DialogHelpButton, "About");
+    m_sidebar->setCurrentRow(0);
+    m_sidebar->setStyleSheet(
+        "QListWidget { border: none; background-color: #f4f6f9; font-size: 13px; outline: none; }"
+        "QListWidget::item { padding: 12px 14px; }"
+        "QListWidget::item:selected { background-color: #dbe7ff; color: #1a3b8f; border-radius: 6px; }"
+        "QListWidget::item:focus { outline: none; border: none; }"
+    );
+
+    m_stack = new QStackedWidget(this);
+    m_stack->addWidget(buildMasterRecoveryPage());
+    m_stack->addWidget(buildGeneralPage());
+    m_stack->addWidget(buildSecurityPage());
+    m_stack->addWidget(buildAboutPage());
+
+    connect(m_sidebar, &QListWidget::currentRowChanged, m_stack, &QStackedWidget::setCurrentIndex);
+
+    outer->addWidget(m_sidebar);
+    outer->addWidget(m_stack);
+}
+
+QWidget* SettingsDialog::buildMasterRecoveryPage()
+{
+    auto* page = new QWidget(this);
+    auto* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(28, 26, 28, 26);
+    layout->setSpacing(14);
+
+    auto* heading = new QLabel("Master Recovery Settings", page);
+    heading->setStyleSheet("font-weight: 600; font-size: 16px;");
+    layout->addWidget(heading);
+
+    auto* desc = new QLabel("Set up and manage your Master Recovery Key. This key is the only way to recover your data if you forget a folder's password.", page);
+    desc->setWordWrap(true);
+    desc->setStyleSheet("color: #6b7280; font-size: 12px; line-height: 140%;");
+    layout->addWidget(desc);
+
+    layout->addSpacing(8);
+
+    m_recoverButton = new QPushButton("   Recover a Folder...", page);
+    m_recoverButton->setIcon(style()->standardIcon(QStyle::SP_DialogYesButton));
+    m_recoverButton->setIconSize(QSize(20, 20));
+    m_recoverButton->setMinimumHeight(44);
+    m_recoverButton->setCursor(Qt::PointingHandCursor);
+    m_recoverButton->setAutoDefault(false);
+    m_recoverButton->setDefault(false);
+    m_recoverButton->setStyleSheet(
+        "QPushButton { text-align: left; padding: 8px 14px; border: 1px solid #d7dae0; border-radius: 6px; background-color: #f7f9fc; font-size: 12px; color: #1f2937; }"
+        "QPushButton:hover { background-color: #eaf1ff; color: #1f2937; }"
+        "QPushButton:pressed { background-color: #dbe7ff; color: #1f2937; }"
+        "QPushButton:focus { outline: none; color: #1f2937; }");
+
+    m_exportButton = new QPushButton("   Export Recovery Token...", page);
+    m_exportButton->setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
+    m_exportButton->setIconSize(QSize(20, 20));
+    m_exportButton->setMinimumHeight(44);
+    m_exportButton->setCursor(Qt::PointingHandCursor);
+    m_exportButton->setAutoDefault(false);
+    m_exportButton->setDefault(false);
+    m_exportButton->setStyleSheet(
+        "QPushButton { text-align: left; padding: 8px 14px; border: 1px solid #d7dae0; border-radius: 6px; background-color: #f7f9fc; font-size: 12px; color: #1f2937; }"
+        "QPushButton:hover { background-color: #eaf1ff; color: #1f2937; }"
+        "QPushButton:pressed { background-color: #dbe7ff; color: #1f2937; }"
+        "QPushButton:focus { outline: none; color: #1f2937; }");
+
     layout->addWidget(m_recoverButton);
     layout->addWidget(m_exportButton);
 
+    m_statusLabel = new QLabel("", page);
+    m_statusLabel->setWordWrap(true);
+    m_statusLabel->setStyleSheet("color: #374151; font-size: 12px; margin-top: 10px;");
+    layout->addWidget(m_statusLabel);
+
+    layout->addStretch();
+
     connect(m_recoverButton, &QPushButton::clicked, this, &SettingsDialog::onRecoverFolderClicked);
     connect(m_exportButton, &QPushButton::clicked, this, &SettingsDialog::onExportTokenClicked);
+
+    return page;
+}
+
+QWidget* SettingsDialog::buildGeneralPage()
+{
+    auto* page = new QWidget(this);
+    auto* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(28, 26, 28, 26);
+    layout->setSpacing(16);
+
+    auto* heading = new QLabel("General Settings", page);
+    heading->setStyleSheet("font-weight: 600; font-size: 16px;");
+    layout->addWidget(heading);
+
+    auto* startupCheck = new QCheckBox("Launch ByteLock on Windows startup", page);
+    layout->addWidget(startupCheck);
+
+    auto* behaviorLabel = new QLabel("Default lock behavior:", page);
+    behaviorLabel->setStyleSheet("font-size: 12px; margin-top: 10px;");
+    layout->addWidget(behaviorLabel);
+
+    auto* behaviorCombo = new QComboBox(page);
+    behaviorCombo->addItem("Standard (ask every time)");
+    behaviorCombo->addItem("Auto-lock folders on system sleep/lock");
+    layout->addWidget(behaviorCombo);
+
+    auto* note = new QLabel("These options are not yet wired to app behavior.", page);
+    note->setStyleSheet("color: #9ca3af; font-size: 11px; margin-top: 12px;");
+    layout->addWidget(note);
+
+    layout->addStretch();
+    return page;
+}
+
+QWidget* SettingsDialog::buildSecurityPage()
+{
+    auto* page = new QWidget(this);
+    auto* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(28, 26, 28, 26);
+    layout->setSpacing(14);
+
+    auto* heading = new QLabel("Security", page);
+    heading->setStyleSheet("font-weight: 600; font-size: 16px;");
+    layout->addWidget(heading);
+
+    auto* infoFrame = new QFrame(page);
+    infoFrame->setStyleSheet("background-color: #f4f6f9; border: 1px solid #e2e5ea; border-radius: 8px;");
+    auto* infoLayout = new QVBoxLayout(infoFrame);
+    infoLayout->setContentsMargins(18, 16, 18, 16);
+    infoLayout->setSpacing(12);
+
+    auto* specHeading = new QLabel("Engine Specifications", infoFrame);
+    specHeading->setStyleSheet("font-weight: 600; font-size: 13px;");
+    infoLayout->addWidget(specHeading);
+
+    auto addSpec = [&](const QString& text) {
+        auto* label = new QLabel(text, infoFrame);
+        label->setStyleSheet("font-size: 12px; color: #374151;");
+        label->setWordWrap(true);
+        infoLayout->addWidget(label);
+    };
+    addSpec("• Encryption Standard: AES-256-GCM (Authenticated Encryption)");
+    addSpec("• Key Derivation: Argon2id (memory: 64MB, iterations: 3, parallelism: 4)");
+    addSpec("• Integrity Validation: Constant-time verification (OpenSSL CRYPTO_memcmp)");
+    addSpec("• Escrow Protection: Local Master Recovery key wrapped via Windows DPAPI");
+
+    layout->addWidget(infoFrame);
+    layout->addStretch();
+    return page;
+}
+
+QWidget* SettingsDialog::buildAboutPage()
+{
+    auto* page = new QWidget(this);
+    auto* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(28, 26, 28, 26);
+    layout->setSpacing(10);
+    layout->setAlignment(Qt::AlignTop);
+
+    auto* nameLabel = new QLabel("ByteLock — Secure Local Vaults", page);
+    nameLabel->setStyleSheet("font-weight: 600; font-size: 16px;");
+    layout->addWidget(nameLabel);
+
+    auto* versionLabel = new QLabel("v1.0.0 (Release Build)", page);
+    versionLabel->setStyleSheet("color: #6b7280; font-size: 12px;");
+    layout->addWidget(versionLabel);
+
+    auto* descLabel = new QLabel("A zero-knowledge, local-first folder encryption tool powered by Qt6, OpenSSL, and WinFsp.", page);
+    descLabel->setWordWrap(true);
+    descLabel->setStyleSheet("font-size: 12px; margin-top: 8px;");
+    layout->addWidget(descLabel);
+
+    auto* watermark = new QLabel(
+        "<div style='margin-top:18px; font-size:12px;'>"
+        "Crafted by <b>Dvvyom</b><br><br>"
+        "<a href='https://github.com/omvs077/ByteLock' style='color:#2f6fed;'>GitHub</a> &nbsp;|&nbsp; "
+        "<span style='color:#2f6fed;'>omvs077@gmail.com</span>"
+        "</div>", page);
+    watermark->setOpenExternalLinks(true);
+    layout->addWidget(watermark);
+
+    layout->addStretch();
+    return page;
 }
 
 void SettingsDialog::onRecoverFolderClicked()

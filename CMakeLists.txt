@@ -18,6 +18,7 @@ set(SOURCES
     src/SetupDialog.cpp
     src/SettingsDialog.cpp
     resources/app.rc
+    resources/icons.qrc
     src/engine/CryptoEngine.cpp
     src/engine/FolderPacker.cpp
 )
