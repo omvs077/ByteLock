@@ -40,8 +40,12 @@ SettingsDialog::SettingsDialog(QWidget* parent)
 
 void SettingsDialog::onRecoverFolderClicked()
 {
-    QString sidecarPath = QFileDialog::getOpenFileName(this, "Select .blk_recovery sidecar", "", "ByteLock Recovery (*.blk_recovery)");
-    if (sidecarPath.isEmpty()) return;
+    QString blockedPath = QFileDialog::getOpenFileName(this, "Select the locked folder",
+                                                         "", "ByteLock Locked Folder (*.blocked)");
+    if (blockedPath.isEmpty()) return;
+
+    QString sidecarPath = blockedPath;
+    sidecarPath.replace(".blocked", ".blk_recovery");
 
     bool ok = false;
     QString recoveryKey = QInputDialog::getText(this, "Master Recovery", "Enter your Master Recovery Key:",
@@ -103,25 +107,37 @@ void SettingsDialog::onExportTokenClicked()
         return;
     }
 
-    QString path = QFileDialog::getSaveFileName(this, "Save Recovery Token",
-                                                  "bytelock_recovery_key.txt", "Text Files (*.txt)");
-    if (path.isEmpty()) return;
+    QString dir = QFileDialog::getExistingDirectory(this, "Choose folder to save recovery files");
+    if (dir.isEmpty()) return;
 
     QMessageBox::warning(this, "Security Warning",
-        "This file, combined with your Master Recovery Key, can recover ANY locked folder.\n"
-        "Never store it on this computer. Keep it on a USB drive or other secure offline location.");
+        "These files, combined together, can recover ANY locked folder.\n"
+        "Never store them on this computer. Keep them on a USB drive or other secure offline location.");
 
-    QFile file(path);
-    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QTextStream out(&file);
+    QFile keyFile(dir + "/bytelock_master_key.txt");
+    if (keyFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&keyFile);
         out << "ByteLock Master Recovery Key\n";
         out << "Generated once. Never stored by ByteLock. Keep this file safe.\n\n";
         out << recoveryKey << "\n";
-        out << "\n---\n";
-        out << "Encrypted Escrow Data (required for recovery, keep with the key above):\n";
+    } else {
+        QMessageBox::warning(this, "Save Failed", "Could not write the master key file.");
+        return;
+    }
+
+    QFile escrowFile(dir + "/bytelock_escrow_data.txt");
+    if (escrowFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&escrowFile);
+        out << "ByteLock Encrypted Escrow Data\n";
+        out << "This file must be kept together with bytelock_master_key.txt.\n";
+        out << "Neither file alone can recover a folder - both are required.\n";
+        out << "To recover a folder: open ByteLock -> Settings -> Recover a Folder,\n";
+        out << "select the folder's .blk_recovery file, then enter the Master Recovery Key\n";
+        out << "from bytelock_master_key.txt when prompted.\n\n";
         out << QString::fromLatin1(MasterConfig::wrapEscrowKeyWithRecoveryKey(recoveryKey)) << "\n";
         m_statusLabel->setText("Recovery token exported successfully.");
     } else {
-        QMessageBox::warning(this, "Save Failed", "Could not write the recovery token file.");
+        QMessageBox::warning(this, "Save Failed", "Could not write the escrow data file.");
     }
 }
+

@@ -90,21 +90,32 @@ void SetupDialog::onCopyClicked()
 
 void SetupDialog::onSaveClicked()
 {
-    QString path = QFileDialog::getSaveFileName(this, "Save Recovery Key",
-                                                  "bytelock_recovery_key.txt", "Text Files (*.txt)");
-    if (path.isEmpty()) return;
+    QString dir = QFileDialog::getExistingDirectory(this, "Choose folder to save recovery files");
+    if (dir.isEmpty()) return;
 
-    QFile file(path);
-    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QTextStream out(&file);
+    QFile keyFile(dir + "/bytelock_master_key.txt");
+    if (keyFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&keyFile);
         out << "ByteLock Master Recovery Key\n";
         out << "Generated once. Never stored by ByteLock. Keep this file safe.\n\n";
         out << m_recoveryKey << "\n";
-        out << "\n---\n";
-        out << "Encrypted Escrow Data (required for recovery, keep with the key above):\n";
+    } else {
+        QMessageBox::warning(this, "Save Failed", "Could not write the master key file.");
+        return;
+    }
+
+    QFile escrowFile(dir + "/bytelock_escrow_data.txt");
+    if (escrowFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&escrowFile);
+        out << "ByteLock Encrypted Escrow Data\n";
+        out << "This file must be kept together with bytelock_master_key.txt.\n";
+        out << "Neither file alone can recover a folder - both are required.\n";
+        out << "To recover a folder: open ByteLock -> Settings -> Recover a Folder,\n";
+        out << "select the folder's .blk_recovery file, then enter the Master Recovery Key\n";
+        out << "from bytelock_master_key.txt when prompted.\n\n";
         out << QString::fromLatin1(MasterConfig::wrapEscrowKeyWithRecoveryKey(m_recoveryKey)) << "\n";
     } else {
-        QMessageBox::warning(this, "Save Failed", "Could not write the recovery key file.");
+        QMessageBox::warning(this, "Save Failed", "Could not write the escrow data file.");
     }
 }
 
@@ -112,3 +123,4 @@ void SetupDialog::onCheckboxToggled(bool checked)
 {
     m_okButton->setEnabled(checked);
 }
+
