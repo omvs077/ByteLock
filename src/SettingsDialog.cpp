@@ -10,6 +10,9 @@
 #include <QPushButton>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QSettings>
+#include <QCoreApplication>
+#include <QDir>
 #include <QListWidget>
 #include <QStackedWidget>
 #include <QFileDialog>
@@ -140,20 +143,17 @@ QWidget* SettingsDialog::buildGeneralPage()
     layout->addWidget(heading);
 
     auto* startupCheck = new QCheckBox("Launch ByteLock on Windows startup", page);
+    QSettings runKey("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", QSettings::NativeFormat);
+    startupCheck->setChecked(runKey.contains("ByteLock"));
+    connect(startupCheck, &QCheckBox::toggled, this, [](bool checked) {
+        QSettings key("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", QSettings::NativeFormat);
+        if (checked) {
+            key.setValue("ByteLock", QDir::toNativeSeparators(QCoreApplication::applicationFilePath()));
+        } else {
+            key.remove("ByteLock");
+        }
+    });
     layout->addWidget(startupCheck);
-
-    auto* behaviorLabel = new QLabel("Default lock behavior:", page);
-    behaviorLabel->setStyleSheet("font-size: 12px; margin-top: 10px;");
-    layout->addWidget(behaviorLabel);
-
-    auto* behaviorCombo = new QComboBox(page);
-    behaviorCombo->addItem("Standard (ask every time)");
-    behaviorCombo->addItem("Auto-lock folders on system sleep/lock");
-    layout->addWidget(behaviorCombo);
-
-    auto* note = new QLabel("These options are not yet wired to app behavior.", page);
-    note->setStyleSheet("color: #9ca3af; font-size: 11px; margin-top: 12px;");
-    layout->addWidget(note);
 
     layout->addStretch();
     return page;
@@ -333,4 +333,3 @@ void SettingsDialog::onExportTokenClicked()
         QMessageBox::warning(this, "Save Failed", "Could not write the escrow data file.");
     }
 }
-
