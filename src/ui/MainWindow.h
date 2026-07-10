@@ -18,6 +18,7 @@ private slots:
     void onRunCryptoSelfTestClicked();
     void onLockFolderClicked();
     void onUnlockFolderClicked();
+    void onSettingsClicked();
 
 private:
     void setupUi();
@@ -27,11 +28,13 @@ private:
     QPushButton* m_selfTestButton = nullptr;
     QPushButton* m_lockFolderButton = nullptr;
     QPushButton* m_unlockFolderButton = nullptr;
+    QPushButton* m_settingsButton = nullptr;
     QString m_startupContainerPath;
     void showStartupUnlockPrompt();
     void unlockContainer(const QString& containerPath);
     void lockContainer(const QString& folder);
 };
+
 
 
 

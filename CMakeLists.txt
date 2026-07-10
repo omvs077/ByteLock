@@ -14,6 +14,9 @@ find_package(OpenSSL REQUIRED)
 set(SOURCES
     src/main.cpp
     src/ui/MainWindow.cpp
+    src/MasterConfig.cpp
+    src/SetupDialog.cpp
+    src/SettingsDialog.cpp
     resources/app.rc
     src/engine/CryptoEngine.cpp
     src/engine/FolderPacker.cpp
@@ -33,6 +36,7 @@ target_link_libraries(ByteLock PRIVATE
     Qt6::Widgets
     OpenSSL::SSL
     OpenSSL::Crypto
+    Crypt32
 )
 
 target_include_directories(ByteLock PRIVATE
@@ -54,5 +58,3 @@ if(WIN32)
         )
     endif()
 endif()
-
-

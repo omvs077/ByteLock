@@ -1,4 +1,6 @@
 ﻿#include "ui/MainWindow.h"
+#include "MasterConfig.h"
+#include "SettingsDialog.h"
 
 #include <QCoreApplication>
 #include <QElapsedTimer>
@@ -46,6 +48,7 @@ void MainWindow::setupUi()
     m_selfTestButton = new QPushButton("Run Crypto Self-Test", central);
     m_lockFolderButton = new QPushButton("Lock a Folder...", central);
     m_unlockFolderButton = new QPushButton("Unlock a .blk Container...", central);
+    m_settingsButton = new QPushButton("Settings...", central);
 
     layout->addStretch();
     layout->addWidget(m_statusLabel);
@@ -53,6 +56,7 @@ void MainWindow::setupUi()
     layout->addWidget(m_selfTestButton);
     layout->addWidget(m_lockFolderButton);
     layout->addWidget(m_unlockFolderButton);
+    layout->addWidget(m_settingsButton);
     layout->addStretch();
 
     setCentralWidget(central);
@@ -61,6 +65,7 @@ void MainWindow::setupUi()
     connect(m_selfTestButton, &QPushButton::clicked, this, &MainWindow::onRunCryptoSelfTestClicked);
     connect(m_lockFolderButton, &QPushButton::clicked, this, &MainWindow::onLockFolderClicked);
     connect(m_unlockFolderButton, &QPushButton::clicked, this, &MainWindow::onUnlockFolderClicked);
+    connect(m_settingsButton, &QPushButton::clicked, this, &MainWindow::onSettingsClicked);
 }
 
 void MainWindow::onCheckOpenSslClicked()
@@ -171,6 +176,20 @@ void MainWindow::lockContainer(const QString& folder)
 
     QFile(folder + ".blocked").open(QIODevice::WriteOnly);
     SetFileAttributesW(containerPath.toStdWString().c_str(), FILE_ATTRIBUTE_HIDDEN);
+    auto escrowKey = MasterConfig::getEscrowKey();
+    if (!escrowKey.empty()) {
+        std::vector<uint8_t> folderKeyBytes(keyResult.value().data(), keyResult.value().data() + keyResult.value().size());
+        auto wrapped = CryptoEngine::encryptBuffer(folderKeyBytes, escrowKey);
+        if (wrapped) {
+            QString sidecarPath = folder + ".blk_recovery";
+            QFile sidecar(sidecarPath);
+            if (sidecar.open(QIODevice::WriteOnly)) {
+                sidecar.write(reinterpret_cast<const char*>(wrapped.value().data()), static_cast<qint64>(wrapped.value().size()));
+                sidecar.close();
+                SetFileAttributesW(sidecarPath.toStdWString().c_str(), FILE_ATTRIBUTE_HIDDEN);
+            }
+        }
+    }
     m_statusLabel->setText("Folder locked successfully.\nContainer: " + containerPath);
 }
 
@@ -226,3 +245,10 @@ void MainWindow::showStartupUnlockPrompt()
     unlockContainer(blk + ".blk");
     close();
 }
+
+void MainWindow::onSettingsClicked()
+{
+    SettingsDialog dialog(this);
+    dialog.exec();
+}
+
