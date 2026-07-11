@@ -18,6 +18,9 @@
 #include <QStyle>
 #include <QFont>
 #include <QIcon>
+#include <QProgressDialog>
+#include <QtConcurrent/QtConcurrent>
+#include <QFutureWatcher>
 
 #include <openssl/opensslv.h>
 
@@ -84,11 +87,18 @@ MainWindow::MainWindow(const QString& startupContainerPath, QWidget* parent, con
     , m_startupContainerPath(startupContainerPath)
 {
     setupUi();
+    connect(this, &MainWindow::progressChanged, this, &MainWindow::onProgressChanged);
     if (!m_startupContainerPath.isEmpty()) showStartupUnlockPrompt();
     if (!lockFolderPath.isEmpty()) { lockContainer(lockFolderPath); close(); }
 }
 
 MainWindow::~MainWindow() = default;
+
+void MainWindow::onProgressChanged(quint64 done, quint64 total)
+{
+    if (!m_progressDialog || total == 0) return;
+    m_progressDialog->setValue(static_cast<int>((done * 100) / total));
+}
 
 void MainWindow::setupUi()
 {
@@ -255,9 +265,6 @@ void MainWindow::lockContainer(const QString& folder)
                                               QLineEdit::Password, "", &ok);
     if (!ok || password.isEmpty()) return;
 
-    m_statusLabel->setText("Locking folder, please wait (this can take a moment)...");
-    QCoreApplication::processEvents();
-
     auto saltResult = CryptoEngine::randomBytes(CryptoEngine::SaltSizeBytes);
     if (!saltResult) {
         m_statusLabel->setText("FAILED: " + QString::fromStdString(saltResult.errorMessage()));
@@ -271,31 +278,57 @@ void MainWindow::lockContainer(const QString& folder)
     }
 
     QString containerPath = folder + ".blk";
-    auto lockResult = FolderPacker::lockFolder(folder.toStdString(), containerPath.toStdString(),
-                                                keyResult.value(), saltResult.value());
-    if (!lockResult) {
-        m_statusLabel->setText("FAILED to lock folder: " + QString::fromStdString(lockResult.errorMessage()));
-        return;
-    }
+    auto keyPtr = std::make_shared<SecureBytes>(std::move(keyResult.value()));
+    std::vector<uint8_t> salt = saltResult.value();
 
-    QFile(folder + ".blocked").open(QIODevice::WriteOnly);
-    MasterConfig::trackLockedFolder(folder);
-    SetFileAttributesW(containerPath.toStdWString().c_str(), FILE_ATTRIBUTE_HIDDEN);
-    auto escrowKey = MasterConfig::getEscrowKey();
-    if (!escrowKey.empty()) {
-        std::vector<uint8_t> folderKeyBytes(keyResult.value().data(), keyResult.value().data() + keyResult.value().size());
-        auto wrapped = CryptoEngine::encryptBuffer(folderKeyBytes, escrowKey);
-        if (wrapped) {
-            QString sidecarPath = folder + ".blk_recovery";
-            QFile sidecar(sidecarPath);
-            if (sidecar.open(QIODevice::WriteOnly)) {
-                sidecar.write(reinterpret_cast<const char*>(wrapped.value().data()), static_cast<qint64>(wrapped.value().size()));
-                sidecar.close();
-                SetFileAttributesW(sidecarPath.toStdWString().c_str(), FILE_ATTRIBUTE_HIDDEN);
+    m_statusLabel->setText("Locking folder, please wait...");
+    m_progressDialog = new QProgressDialog("Locking folder...", QString(), 0, 100, this);
+    m_progressDialog->setWindowModality(Qt::WindowModal);
+    m_progressDialog->setCancelButton(nullptr);
+    m_progressDialog->setMinimumDuration(0);
+    m_progressDialog->setValue(0);
+
+    auto* watcher = new QFutureWatcher<Result<void>>(this);
+    connect(watcher, &QFutureWatcher<Result<void>>::finished, this, [this, watcher, folder, containerPath, keyPtr]() {
+        auto lockResult = watcher->result();
+        m_progressDialog->close();
+        m_progressDialog->deleteLater();
+        m_progressDialog = nullptr;
+        watcher->deleteLater();
+
+        if (!lockResult) {
+            m_statusLabel->setText("FAILED to lock folder: " + QString::fromStdString(lockResult.errorMessage()));
+            return;
+        }
+
+        QFile(folder + ".blocked").open(QIODevice::WriteOnly);
+        MasterConfig::trackLockedFolder(folder);
+        SetFileAttributesW(containerPath.toStdWString().c_str(), FILE_ATTRIBUTE_HIDDEN);
+        auto escrowKey = MasterConfig::getEscrowKey();
+        if (!escrowKey.empty()) {
+            std::vector<uint8_t> folderKeyBytes(keyPtr->data(), keyPtr->data() + keyPtr->size());
+            auto wrapped = CryptoEngine::encryptBuffer(folderKeyBytes, escrowKey);
+            if (wrapped) {
+                QString sidecarPath = folder + ".blk_recovery";
+                QFile sidecar(sidecarPath);
+                if (sidecar.open(QIODevice::WriteOnly)) {
+                    sidecar.write(reinterpret_cast<const char*>(wrapped.value().data()), static_cast<qint64>(wrapped.value().size()));
+                    sidecar.close();
+                    SetFileAttributesW(sidecarPath.toStdWString().c_str(), FILE_ATTRIBUTE_HIDDEN);
+                }
             }
         }
-    }
-    m_statusLabel->setText("Folder locked successfully.\nContainer: " + containerPath);
+        m_statusLabel->setText("Folder locked successfully.\nContainer: " + containerPath);
+    });
+
+    QFuture<Result<void>> future = QtConcurrent::run([this, folder, containerPath, keyPtr, salt]() {
+        return FolderPacker::lockFolder(folder.toStdString(), containerPath.toStdString(), *keyPtr, salt,
+                                         FolderPacker::DefaultStreamingThresholdBytes,
+                                         [this](uint64_t done, uint64_t total) {
+                                             emit progressChanged(done, total);
+                                         });
+    });
+    watcher->setFuture(future);
 }
 
 void MainWindow::onUnlockFolderClicked()
@@ -318,9 +351,6 @@ void MainWindow::unlockContainer(const QString& containerPath)
                                               QLineEdit::Password, "", &ok);
     if (!ok || password.isEmpty()) return;
 
-    m_statusLabel->setText("Unlocking folder, please wait...");
-    QCoreApplication::processEvents();
-
     auto keyResult = CryptoEngine::deriveKey(password.toStdString(), saltResult.value());
     if (!keyResult) {
         m_statusLabel->setText("FAILED: " + QString::fromStdString(keyResult.errorMessage()));
@@ -332,28 +362,79 @@ void MainWindow::unlockContainer(const QString& containerPath)
         destination.chop(4);
     }
 
-    auto unlockResult = FolderPacker::unlockFolder(containerPath.toStdString(), destination.toStdString(), keyResult.value());
-    if (!unlockResult) {
-        m_statusLabel->setText("FAILED to unlock: " + QString::fromStdString(unlockResult.errorMessage()));
-        return;
+    auto keyPtr = std::make_shared<SecureBytes>(std::move(keyResult.value()));
+
+    m_statusLabel->setText("Unlocking folder, please wait...");
+    m_progressDialog = new QProgressDialog("Unlocking folder...", QString(), 0, 100, this);
+    m_progressDialog->setWindowModality(Qt::WindowModal);
+    m_progressDialog->setCancelButton(nullptr);
+    m_progressDialog->setMinimumDuration(0);
+    m_progressDialog->setValue(0);
+
+    auto* watcher = new QFutureWatcher<Result<void>>(this);
+    connect(watcher, &QFutureWatcher<Result<void>>::finished, this, [this, watcher, destination]() {
+        auto unlockResult = watcher->result();
+        m_progressDialog->close();
+        m_progressDialog->deleteLater();
+        m_progressDialog = nullptr;
+        watcher->deleteLater();
+
+        if (!unlockResult) {
+            m_statusLabel->setText("FAILED to unlock: " + QString::fromStdString(unlockResult.errorMessage()));
+            return;
+        }
+
+        QFile::remove(destination + ".blocked");
+        MasterConfig::untrackLockedFolder(destination);
+
+        m_statusLabel->setText("Folder unlocked successfully.\nRestored to: " + destination);
+    });
+
+    QFuture<Result<void>> future = QtConcurrent::run([this, containerPath, destination, keyPtr]() {
+        return FolderPacker::unlockFolder(containerPath.toStdString(), destination.toStdString(), *keyPtr,
+                                           [this](uint64_t done, uint64_t total) {
+                                               emit progressChanged(done, total);
+                                           });
+    });
+    watcher->setFuture(future);
+}
+
+void MainWindow::unlockContainerSilent(const QString& containerPath)
+{
+    auto saltResult = FolderPacker::peekContainerSalt(containerPath.toStdString());
+    if (!saltResult) return;
+
+    bool ok = false;
+    QString password = QInputDialog::getText(this, "Enter Password", "Enter the password for this folder:",
+                                              QLineEdit::Password, "", &ok);
+    if (!ok || password.isEmpty()) return;
+
+    auto keyResult = CryptoEngine::deriveKey(password.toStdString(), saltResult.value());
+    if (!keyResult) return;
+
+    QString destination = containerPath;
+    if (destination.endsWith(".blk")) {
+        destination.chop(4);
     }
+
+    auto unlockResult = FolderPacker::unlockFolder(containerPath.toStdString(), destination.toStdString(), keyResult.value());
+    if (!unlockResult) return;
 
     QFile::remove(destination + ".blocked");
     MasterConfig::untrackLockedFolder(destination);
-
-    m_statusLabel->setText("Folder unlocked successfully.\nRestored to: " + destination);
 }
 
 void MainWindow::showStartupUnlockPrompt()
 {
     QString blk = m_startupContainerPath;
     if (blk.endsWith(".blocked")) blk.chop(8);
-    unlockContainer(blk + ".blk");
+    unlockContainerSilent(blk + ".blk");
     close();
 }
-
 void MainWindow::onSettingsClicked()
 {
     SettingsDialog dialog(this);
     dialog.exec();
 }
+
+

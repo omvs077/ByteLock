@@ -8,7 +8,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent)
 find_package(OpenSSL REQUIRED)
 
 set(SOURCES
@@ -36,6 +36,7 @@ add_executable(ByteLock WIN32 ${SOURCES} ${HEADERS})
 
 target_link_libraries(ByteLock PRIVATE
     Qt6::Widgets
+    Qt6::Concurrent
     OpenSSL::SSL
     OpenSSL::Crypto
     Crypt32
@@ -60,3 +61,4 @@ if(WIN32)
         )
     endif()
 endif()
+

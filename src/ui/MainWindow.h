@@ -4,6 +4,7 @@
 
 class QLabel;
 class QPushButton;
+class QProgressDialog;
 
 class MainWindow : public QMainWindow
 {
@@ -19,6 +20,7 @@ private slots:
     void onLockFolderClicked();
     void onUnlockFolderClicked();
     void onSettingsClicked();
+    void onProgressChanged(quint64 done, quint64 total);
 
 private:
     void setupUi();
@@ -32,8 +34,15 @@ private:
     QString m_startupContainerPath;
     void showStartupUnlockPrompt();
     void unlockContainer(const QString& containerPath);
+    void unlockContainerSilent(const QString& containerPath);
     void lockContainer(const QString& folder);
+    QProgressDialog* m_progressDialog = nullptr;
+
+signals:
+    void progressChanged(quint64 done, quint64 total);
 };
+
+
 
 
 

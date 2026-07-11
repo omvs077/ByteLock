@@ -158,7 +158,8 @@ Result<void> FolderPacker::lockFolder(const std::string& folderPath,
                                        const std::string& containerPath,
                                        const SecureBytes& key,
                                        const std::vector<uint8_t>& salt,
-                                       uint64_t streamingThresholdBytes)
+                                       uint64_t streamingThresholdBytes,
+                                       const ProgressCallback& onProgress)
 {
     try {
         if (salt.size() != CryptoEngine::SaltSizeBytes) {
@@ -232,6 +233,7 @@ Result<void> FolderPacker::lockFolder(const std::string& folderPath,
 
             if (auto r = writeChunk(manifest.data(), manifest.size()); !r) return r;
 
+            uint64_t bytesDone = 0;
             for (const auto& entry : entries) {
                 std::ifstream in(entry.absolutePath, std::ios::binary);
                 if (!in) {
@@ -243,6 +245,8 @@ Result<void> FolderPacker::lockFolder(const std::string& folderPath,
                     std::streamsize got = in.gcount();
                     if (got <= 0) break;
                     if (auto r = writeChunk(readBuf.data(), static_cast<size_t>(got)); !r) return r;
+                    bytesDone += static_cast<uint64_t>(got);
+                    if (onProgress) onProgress(bytesDone, totalContentBytes);
                 }
             }
 
@@ -297,7 +301,8 @@ Result<std::vector<uint8_t>> FolderPacker::peekContainerSalt(const std::string& 
 
 Result<void> FolderPacker::unlockFolder(const std::string& containerPath,
                                          const std::string& destinationFolderPath,
-                                         const SecureBytes& key)
+                                         const SecureBytes& key,
+                                         const ProgressCallback& onProgress)
 {
     try {
         fs::path destination(destinationFolderPath);
@@ -415,6 +420,7 @@ Result<void> FolderPacker::unlockFolder(const std::string& containerPath,
                 return failAndCleanup(ErrorCode::FileReadError, "Failed reading container ciphertext");
             }
             remainingCiphertext -= toRead;
+            if (onProgress) onProgress(ciphertextLen - remainingCiphertext, ciphertextLen);
 
             auto plainResult = decryptor.update(readBuf.data(), toRead);
             if (!plainResult) {
@@ -478,4 +484,8 @@ Result<void> FolderPacker::unlockFolder(const std::string& containerPath,
 }
 
 } // namespace bytelock
+
+
+
+
 
