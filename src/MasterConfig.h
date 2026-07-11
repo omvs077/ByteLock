@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <QString>
 #include <QByteArray>
+#include <QStringList>
 #include "engine/SecureBytes.h"
 
 namespace MasterConfig {
@@ -14,6 +15,7 @@ namespace MasterConfig {
     void trackLockedFolder(const QString& folderPath);
     void untrackLockedFolder(const QString& folderPath);
     void repairOrphanedFolders();
+    QStringList getLockedFolders();
 }
 
 

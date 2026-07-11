@@ -4,7 +4,16 @@
 
 #include "ui/MainWindow.h"
 #include "MasterConfig.h"
+#include "engine/CryptoEngine.h"
+#include "engine/FolderPacker.h"
+#include "engine/SecureBytes.h"
+#include <QInputDialog>
+#include <QLineEdit>
+#include <QFile>
 #include "SetupDialog.h"
+#include "WelcomeGuideDialog.h"
+
+using namespace bytelock;
 
 namespace {
 
@@ -65,6 +74,37 @@ int main(int argc, char* argv[])
 
     QString arg1 = argc > 1 ? QString::fromLocal8Bit(argv[1]) : QString();
     QString arg2 = argc > 2 ? QString::fromLocal8Bit(argv[2]) : QString();
+    if (arg1 == "--verify-recovery") {
+        bool ok = false;
+        QString key = QInputDialog::getText(nullptr, "ByteLock Uninstall",
+            "Enter your Master Recovery Key to continue uninstalling:",
+            QLineEdit::Password, "", &ok);
+        if (!ok || key.isEmpty() || !MasterConfig::verify(key)) return 1;
+        return 0;
+    }
+
+    if (arg1 == "--unlock-all") {
+        auto escrowKey = MasterConfig::getEscrowKey();
+        if (escrowKey.empty()) return 1;
+        for (const QString& folderPath : MasterConfig::getLockedFolders()) {
+            QString containerPath = folderPath + ".blk";
+            QString sidecarPath = folderPath + ".blk_recovery";
+            QFile sidecar(sidecarPath);
+            if (!sidecar.open(QIODevice::ReadOnly)) continue;
+            QByteArray wrapped = sidecar.readAll();
+            std::vector<uint8_t> wrappedBytes(wrapped.begin(), wrapped.end());
+            auto unwrapped = CryptoEngine::decryptBuffer(wrappedBytes, escrowKey);
+            if (!unwrapped) continue;
+            SecureBytes folderKey(unwrapped.value().size());
+            memcpy(folderKey.data(), unwrapped.value().data(), unwrapped.value().size());
+            if (FolderPacker::unlockFolder(containerPath.toStdString(), folderPath.toStdString(), folderKey)) {
+                QFile::remove(folderPath + ".blocked");
+                MasterConfig::untrackLockedFolder(folderPath);
+            }
+        }
+        return 0;
+    }
+
     bool lockMode = arg1 == "--lock";
     QString startupPath = lockMode ? QString() : arg1;
 
@@ -84,6 +124,8 @@ int main(int argc, char* argv[])
         if (setup.exec() != QDialog::Accepted) {
             return 0;
         }
+        WelcomeGuideDialog guide;
+        guide.exec();
     }
 
     MasterConfig::repairOrphanedFolders();

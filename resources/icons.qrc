@@ -2,5 +2,15 @@
     <qresource prefix="/icons">
         <file alias="app.ico">icons/app.ico</file>
         <file alias="blocked.ico">icons/blocked.ico</file>
+        <file alias="ui/lock.svg">icons/ui/lock.svg</file>
+        <file alias="ui/unlock.svg">icons/ui/unlock.svg</file>
+        <file alias="ui/link.svg">icons/ui/link.svg</file>
+        <file alias="ui/flask.svg">icons/ui/flask.svg</file>
+        <file alias="ui/gear.svg">icons/ui/gear.svg</file>
+        <file alias="ui/key.svg">icons/ui/key.svg</file>
+        <file alias="ui/sliders.svg">icons/ui/sliders.svg</file>
+        <file alias="ui/shield.svg">icons/ui/shield.svg</file>
+        <file alias="ui/info.svg">icons/ui/info.svg</file>
+        <file alias="ui/download.svg">icons/ui/download.svg</file>
     </qresource>
 </RCC>

@@ -16,6 +16,7 @@ set(SOURCES
     src/ui/MainWindow.cpp
     src/MasterConfig.cpp
     src/SetupDialog.cpp
+    src/WelcomeGuideDialog.cpp
     src/SettingsDialog.cpp
     resources/app.rc
     resources/icons.qrc

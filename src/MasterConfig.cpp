@@ -246,3 +246,15 @@ void MasterConfig::repairOrphanedFolders()
         outFile.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
     }
 }
+
+QStringList MasterConfig::getLockedFolders()
+{
+    QFile inFile(configPath());
+    if (!inFile.open(QIODevice::ReadOnly)) return {};
+    QJsonObject root = QJsonDocument::fromJson(inFile.readAll()).object();
+    inFile.close();
+
+    QStringList result;
+    for (const auto& v : root["locked_folders"].toArray()) result << v.toString();
+    return result;
+}

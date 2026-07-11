@@ -53,10 +53,10 @@ QPushButton* makeCardButton(QWidget* parent, QStyle::StandardPixmap icon, const 
     return btn;
 }
 
-QPushButton* makeListButton(QWidget* parent, QStyle::StandardPixmap icon, const QString& title)
+QPushButton* makeListButton(QWidget* parent, const QString& iconPath, const QString& title)
 {
     auto* btn = new QPushButton("   " + title, parent);
-    QIcon ic = parent->style()->standardIcon(icon);
+    QIcon ic(iconPath);
     btn->setIcon(ic);
     btn->setIconSize(ic.actualSize(QSize(24, 24)));
     btn->setMinimumHeight(46);
@@ -142,9 +142,9 @@ void MainWindow::setupUi()
 
     auto* toolsList = new QVBoxLayout();
     toolsList->setSpacing(8);
-    m_checkButton = makeListButton(central, QStyle::SP_MessageBoxInformation, "Check OpenSSL Link");
-    m_selfTestButton = makeListButton(central, QStyle::SP_DialogApplyButton, "Run Crypto Self-Test");
-    m_settingsButton = makeListButton(central, QStyle::SP_FileDialogDetailedView, "Settings...");
+    m_checkButton = makeListButton(central, ":/icons/ui/link.svg", "Check OpenSSL Link");
+    m_selfTestButton = makeListButton(central, ":/icons/ui/flask.svg", "Run Crypto Self-Test");
+    m_settingsButton = makeListButton(central, ":/icons/ui/gear.svg", "Settings...");
     toolsList->addWidget(m_checkButton);
     toolsList->addWidget(m_selfTestButton);
     toolsList->addWidget(m_settingsButton);

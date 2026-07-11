@@ -43,14 +43,14 @@ SettingsDialog::SettingsDialog(QWidget* parent)
     m_sidebar->setFixedWidth(170);
     m_sidebar->setIconSize(QSize(20, 20));
 
-    auto addItem = [&](QStyle::StandardPixmap icon, const QString& text) {
-        auto* item = new QListWidgetItem(style()->standardIcon(icon), text);
+    auto addItem = [&](const QString& iconPath, const QString& text) {
+        auto* item = new QListWidgetItem(QIcon(iconPath), text);
         m_sidebar->addItem(item);
     };
-    addItem(QStyle::SP_DialogYesButton, "Master Recovery");
-    addItem(QStyle::SP_FileDialogDetailedView, "General");
-    addItem(QStyle::SP_MessageBoxInformation, "Security");
-    addItem(QStyle::SP_DialogHelpButton, "About");
+    addItem(":/icons/ui/key.svg", "Master Recovery");
+    addItem(":/icons/ui/sliders.svg", "General");
+    addItem(":/icons/ui/shield.svg", "Security");
+    addItem(":/icons/ui/info.svg", "About");
     m_sidebar->setCurrentRow(0);
     m_sidebar->setStyleSheet(
         "QListWidget { border: none; background-color: #f4f6f9; font-size: 13px; outline: none; }"
@@ -90,7 +90,7 @@ QWidget* SettingsDialog::buildMasterRecoveryPage()
     layout->addSpacing(8);
 
     m_recoverButton = new QPushButton("   Recover a Folder...", page);
-    m_recoverButton->setIcon(style()->standardIcon(QStyle::SP_DialogYesButton));
+    m_recoverButton->setIcon(QIcon(":/icons/ui/key.svg"));
     m_recoverButton->setIconSize(QSize(20, 20));
     m_recoverButton->setMinimumHeight(44);
     m_recoverButton->setCursor(Qt::PointingHandCursor);
@@ -103,7 +103,7 @@ QWidget* SettingsDialog::buildMasterRecoveryPage()
         "QPushButton:focus { outline: none; color: #1f2937; }");
 
     m_exportButton = new QPushButton("   Export Recovery Token...", page);
-    m_exportButton->setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
+    m_exportButton->setIcon(QIcon(":/icons/ui/download.svg"));
     m_exportButton->setIconSize(QSize(20, 20));
     m_exportButton->setMinimumHeight(44);
     m_exportButton->setCursor(Qt::PointingHandCursor);
