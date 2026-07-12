@@ -1,5 +1,6 @@
 ﻿#include "SettingsDialog.h"
 #include "MasterConfig.h"
+#include "PairingDialog.h"
 #include "engine/CryptoEngine.h"
 #include "engine/FolderPacker.h"
 #include "engine/SecureBytes.h"
@@ -118,6 +119,20 @@ QWidget* SettingsDialog::buildMasterRecoveryPage()
     layout->addWidget(m_recoverButton);
     layout->addWidget(m_exportButton);
 
+    m_pairButton = new QPushButton("   Pair Mobile Device...", page);
+    m_pairButton->setIcon(QIcon(":/icons/ui/key.svg"));
+    m_pairButton->setIconSize(QSize(20, 20));
+    m_pairButton->setMinimumHeight(44);
+    m_pairButton->setCursor(Qt::PointingHandCursor);
+    m_pairButton->setAutoDefault(false);
+    m_pairButton->setDefault(false);
+    m_pairButton->setStyleSheet(
+        "QPushButton { text-align: left; padding: 8px 14px; border: 1px solid #d7dae0; border-radius: 6px; background-color: #f7f9fc; font-size: 12px; color: #1f2937; }"
+        "QPushButton:hover { background-color: #eaf1ff; color: #1f2937; }"
+        "QPushButton:pressed { background-color: #dbe7ff; color: #1f2937; }"
+        "QPushButton:focus { outline: none; color: #1f2937; }");
+    layout->addWidget(m_pairButton);
+
     m_statusLabel = new QLabel("", page);
     m_statusLabel->setWordWrap(true);
     m_statusLabel->setStyleSheet("color: #374151; font-size: 12px; margin-top: 10px;");
@@ -127,6 +142,7 @@ QWidget* SettingsDialog::buildMasterRecoveryPage()
 
     connect(m_recoverButton, &QPushButton::clicked, this, &SettingsDialog::onRecoverFolderClicked);
     connect(m_exportButton, &QPushButton::clicked, this, &SettingsDialog::onExportTokenClicked);
+    connect(m_pairButton, &QPushButton::clicked, this, &SettingsDialog::onPairMobileClicked);
 
     return page;
 }
@@ -343,4 +359,23 @@ void SettingsDialog::onExportTokenClicked()
         QMessageBox::warning(this, "Save Failed", "Could not write the escrow data file.");
     }
 }
+
+void SettingsDialog::onPairMobileClicked()
+{
+    bool ok = false;
+    QString recoveryKey = QInputDialog::getText(this, "Master Recovery", "Enter your Master Recovery Key to pair a mobile device:",
+                                                 QLineEdit::Password, "", &ok);
+    if (!ok || recoveryKey.isEmpty()) return;
+
+    if (!MasterConfig::verify(recoveryKey)) {
+        m_statusLabel->setText("FAILED: Incorrect Master Recovery Key.");
+        return;
+    }
+
+    PairingDialog dlg(this);
+    if (dlg.exec() == QDialog::Accepted) {
+        m_statusLabel->setText("Mobile device paired successfully.");
+    }
+}
+
 

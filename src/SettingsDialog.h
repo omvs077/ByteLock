@@ -14,6 +14,7 @@ public:
 private slots:
     void onRecoverFolderClicked();
     void onExportTokenClicked();
+    void onPairMobileClicked();
 
 private:
     QWidget* buildMasterRecoveryPage();
@@ -24,6 +25,7 @@ private:
     QLabel* m_statusLabel = nullptr;
     QPushButton* m_recoverButton = nullptr;
     QPushButton* m_exportButton = nullptr;
+    QPushButton* m_pairButton = nullptr;
     QListWidget* m_sidebar = nullptr;
     QStackedWidget* m_stack = nullptr;
 };
