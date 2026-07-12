@@ -16,7 +16,11 @@ namespace MasterConfig {
     void untrackLockedFolder(const QString& folderPath);
     void repairOrphanedFolders();
     QStringList getLockedFolders();
+    void recordFailedAttempt();
+    void recordSuccessfulAttempt();
+    qint64 secondsUntilNextAttempt();
 }
+
 
 
 

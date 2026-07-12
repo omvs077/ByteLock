@@ -8,6 +8,8 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QDir>
+#include <QDateTime>
+#include <algorithm>
 
 #include <openssl/crypto.h>
 #include <windows.h>
@@ -108,6 +110,8 @@ void MasterConfig::setup(const QString& recoveryKey)
 
 bool MasterConfig::verify(const QString& recoveryKey)
 {
+    if (secondsUntilNextAttempt() > 0) return false;
+
     QJsonObject security = readSecurityObject();
     auto verifierSalt = fromHex(security["verifier_salt_hex"].toString());
     auto storedHash = fromHex(security["verifier_hash_hex"].toString());
@@ -119,7 +123,13 @@ bool MasterConfig::verify(const QString& recoveryKey)
     const auto& c = computed.value();
     if (c.size() != storedHash.size()) return false;
 
-    return CRYPTO_memcmp(c.data(), storedHash.data(), storedHash.size()) == 0;
+    bool match = CRYPTO_memcmp(c.data(), storedHash.data(), storedHash.size()) == 0;
+    if (match) {
+        recordSuccessfulAttempt();
+    } else {
+        recordFailedAttempt();
+    }
+    return match;
 }
 
 SecureBytes MasterConfig::deriveMasterKey(const QString& recoveryKey)
@@ -258,3 +268,70 @@ QStringList MasterConfig::getLockedFolders()
     for (const auto& v : root["locked_folders"].toArray()) result << v.toString();
     return result;
 }
+
+void MasterConfig::recordFailedAttempt()
+{
+    QFile inFile(configPath());
+    QJsonObject root;
+    if (inFile.open(QIODevice::ReadOnly)) {
+        root = QJsonDocument::fromJson(inFile.readAll()).object();
+        inFile.close();
+    }
+    QJsonObject rateLimit = root["rate_limit"].toObject();
+    int failCount = rateLimit["fail_count"].toInt(0) + 1;
+    rateLimit["fail_count"] = failCount;
+    rateLimit["last_fail_epoch"] = QDateTime::currentSecsSinceEpoch();
+    root["rate_limit"] = rateLimit;
+
+    QFile outFile(configPath());
+    if (outFile.open(QIODevice::WriteOnly)) {
+        outFile.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    }
+}
+
+void MasterConfig::recordSuccessfulAttempt()
+{
+    QFile inFile(configPath());
+    if (!inFile.open(QIODevice::ReadOnly)) return;
+    QJsonObject root = QJsonDocument::fromJson(inFile.readAll()).object();
+    inFile.close();
+
+    QJsonObject rateLimit;
+    rateLimit["fail_count"] = 0;
+    rateLimit["last_fail_epoch"] = 0;
+    root["rate_limit"] = rateLimit;
+
+    QFile outFile(configPath());
+    if (outFile.open(QIODevice::WriteOnly)) {
+        outFile.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    }
+}
+
+qint64 MasterConfig::secondsUntilNextAttempt()
+{
+    QFile inFile(configPath());
+    if (!inFile.open(QIODevice::ReadOnly)) return 0;
+    QJsonObject root = QJsonDocument::fromJson(inFile.readAll()).object();
+    inFile.close();
+
+    QJsonObject rateLimit = root["rate_limit"].toObject();
+    int failCount = rateLimit["fail_count"].toInt(0);
+    constexpr int kFreeAttempts = 3;
+    if (failCount <= kFreeAttempts) return 0;
+
+    qint64 lastFail = static_cast<qint64>(rateLimit["last_fail_epoch"].toDouble(0));
+
+    constexpr qint64 kDecayWindowSeconds = 600;
+    qint64 elapsed = QDateTime::currentSecsSinceEpoch() - lastFail;
+    if (elapsed >= kDecayWindowSeconds) {
+        recordSuccessfulAttempt();
+        return 0;
+    }
+
+    int penaltyCount = failCount - kFreeAttempts;
+    qint64 waitSeconds = (std::min<qint64>)(static_cast<qint64>(1) << (std::min)(penaltyCount, 20), 300);
+    qint64 remaining = waitSeconds - elapsed;
+    return remaining > 0 ? remaining : 0;
+}
+
+

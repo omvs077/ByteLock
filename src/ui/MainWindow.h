@@ -34,6 +34,7 @@ private:
     QString m_startupContainerPath;
     void showStartupUnlockPrompt();
     void unlockContainer(const QString& containerPath);
+    void unlockContainerAttempt(const QString& containerPath, const QString& warningText);
     void unlockContainerSilent(const QString& containerPath);
     void lockContainer(const QString& folder);
     QProgressDialog* m_progressDialog = nullptr;
@@ -41,6 +42,7 @@ private:
 signals:
     void progressChanged(quint64 done, quint64 total);
 };
+
 
 
 

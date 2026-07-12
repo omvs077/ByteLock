@@ -18,6 +18,7 @@
 #include <QStyle>
 #include <QFont>
 #include <QIcon>
+#include <QMessageBox>
 #include <QProgressDialog>
 #include <QtConcurrent/QtConcurrent>
 #include <QFutureWatcher>
@@ -333,27 +334,49 @@ void MainWindow::lockContainer(const QString& folder)
 
 void MainWindow::onUnlockFolderClicked()
 {
-    QString containerPath = QFileDialog::getOpenFileName(this, "Select .blk container to unlock", "", "ByteLock Container (*.blk)");
+    QString containerPath = QFileDialog::getOpenFileName(this, "Select container to unlock", "", "ByteLock Container (*.blk *.blocked)");
     if (containerPath.isEmpty()) return;
+    if (containerPath.endsWith(".blocked")) {
+        containerPath.chop(8);
+        containerPath += ".blk";
+    }
     unlockContainer(containerPath);
 }
 
 void MainWindow::unlockContainer(const QString& containerPath)
 {
-    auto saltResult = FolderPacker::peekContainerSalt(containerPath.toStdString());
-    if (!saltResult) {
-        m_statusLabel->setText("FAILED: " + QString::fromStdString(saltResult.errorMessage()));
+    unlockContainerAttempt(containerPath, QString());
+}
+
+void MainWindow::unlockContainerAttempt(const QString& containerPath, const QString& warningText)
+{
+    qint64 waitSecs = MasterConfig::secondsUntilNextAttempt();
+    if (waitSecs > 0) {
+        QMessageBox::warning(this, "Too Many Attempts", QString("Too many failed attempts. Try again in %1 seconds.").arg(waitSecs));
         return;
     }
 
-    bool ok = false;
-    QString password = QInputDialog::getText(this, "Enter Password", "Enter the password for this folder:",
-                                              QLineEdit::Password, "", &ok);
-    if (!ok || password.isEmpty()) return;
+    auto saltResult = FolderPacker::peekContainerSalt(containerPath.toStdString());
+    if (!saltResult) {
+        QMessageBox::warning(this, "Unlock Failed", "FAILED: " + QString::fromStdString(saltResult.errorMessage()));
+        return;
+    }
+
+    QInputDialog dlg(this);
+    dlg.setWindowTitle("Enter Password");
+    QString label = "Enter the password for this folder:";
+    if (!warningText.isEmpty()) {
+        label = "<span style='color:#dc2626; font-weight:600;'>" + warningText + "</span><br>" + label;
+    }
+    dlg.setLabelText(label);
+    dlg.setTextEchoMode(QLineEdit::Password);
+    if (dlg.exec() != QDialog::Accepted) return;
+    QString password = dlg.textValue();
+    if (password.isEmpty()) return;
 
     auto keyResult = CryptoEngine::deriveKey(password.toStdString(), saltResult.value());
     if (!keyResult) {
-        m_statusLabel->setText("FAILED: " + QString::fromStdString(keyResult.errorMessage()));
+        QMessageBox::warning(this, "Unlock Failed", "FAILED: " + QString::fromStdString(keyResult.errorMessage()));
         return;
     }
 
@@ -372,7 +395,7 @@ void MainWindow::unlockContainer(const QString& containerPath)
     m_progressDialog->setValue(0);
 
     auto* watcher = new QFutureWatcher<Result<void>>(this);
-    connect(watcher, &QFutureWatcher<Result<void>>::finished, this, [this, watcher, destination]() {
+    connect(watcher, &QFutureWatcher<Result<void>>::finished, this, [this, watcher, containerPath, destination]() {
         auto unlockResult = watcher->result();
         m_progressDialog->close();
         m_progressDialog->deleteLater();
@@ -380,10 +403,17 @@ void MainWindow::unlockContainer(const QString& containerPath)
         watcher->deleteLater();
 
         if (!unlockResult) {
-            m_statusLabel->setText("FAILED to unlock: " + QString::fromStdString(unlockResult.errorMessage()));
+            m_statusLabel->setText("Ready.");
+            if (unlockResult.error() == ErrorCode::AuthenticationFailed) {
+                MasterConfig::recordFailedAttempt();
+                unlockContainerAttempt(containerPath, "Wrong password. Please try again.");
+            } else {
+                QMessageBox::warning(this, "Unlock Failed", "FAILED to unlock: " + QString::fromStdString(unlockResult.errorMessage()));
+            }
             return;
         }
 
+        MasterConfig::recordSuccessfulAttempt();
         QFile::remove(destination + ".blocked");
         MasterConfig::untrackLockedFolder(destination);
 
@@ -401,29 +431,53 @@ void MainWindow::unlockContainer(const QString& containerPath)
 
 void MainWindow::unlockContainerSilent(const QString& containerPath)
 {
-    auto saltResult = FolderPacker::peekContainerSalt(containerPath.toStdString());
-    if (!saltResult) return;
+    QString warningText;
+    while (true) {
+        qint64 waitSecs = MasterConfig::secondsUntilNextAttempt();
+        if (waitSecs > 0) {
+            QMessageBox::warning(this, "Too Many Attempts", QString("Too many failed attempts. Try again in %1 seconds.").arg(waitSecs));
+            return;
+        }
 
-    bool ok = false;
-    QString password = QInputDialog::getText(this, "Enter Password", "Enter the password for this folder:",
-                                              QLineEdit::Password, "", &ok);
-    if (!ok || password.isEmpty()) return;
+        auto saltResult = FolderPacker::peekContainerSalt(containerPath.toStdString());
+        if (!saltResult) return;
 
-    auto keyResult = CryptoEngine::deriveKey(password.toStdString(), saltResult.value());
-    if (!keyResult) return;
+        QInputDialog dlg(this);
+        dlg.setWindowTitle("Enter Password");
+        QString label = "Enter the password for this folder:";
+        if (!warningText.isEmpty()) {
+            label = "<span style='color:#dc2626; font-weight:600;'>" + warningText + "</span><br>" + label;
+        }
+        dlg.setLabelText(label);
+        dlg.setTextEchoMode(QLineEdit::Password);
+        if (dlg.exec() != QDialog::Accepted) return;
+        QString password = dlg.textValue();
+        if (password.isEmpty()) return;
 
-    QString destination = containerPath;
-    if (destination.endsWith(".blk")) {
-        destination.chop(4);
+        auto keyResult = CryptoEngine::deriveKey(password.toStdString(), saltResult.value());
+        if (!keyResult) return;
+
+        QString destination = containerPath;
+        if (destination.endsWith(".blk")) {
+            destination.chop(4);
+        }
+
+        auto unlockResult = FolderPacker::unlockFolder(containerPath.toStdString(), destination.toStdString(), keyResult.value());
+        if (!unlockResult) {
+            if (unlockResult.error() == ErrorCode::AuthenticationFailed) {
+                MasterConfig::recordFailedAttempt();
+                warningText = "Wrong password. Please try again.";
+                continue;
+            }
+            return;
+        }
+
+        MasterConfig::recordSuccessfulAttempt();
+        QFile::remove(destination + ".blocked");
+        MasterConfig::untrackLockedFolder(destination);
+        return;
     }
-
-    auto unlockResult = FolderPacker::unlockFolder(containerPath.toStdString(), destination.toStdString(), keyResult.value());
-    if (!unlockResult) return;
-
-    QFile::remove(destination + ".blocked");
-    MasterConfig::untrackLockedFolder(destination);
 }
-
 void MainWindow::showStartupUnlockPrompt()
 {
     QString blk = m_startupContainerPath;
@@ -436,5 +490,6 @@ void MainWindow::onSettingsClicked()
     SettingsDialog dialog(this);
     dialog.exec();
 }
+
 
 
