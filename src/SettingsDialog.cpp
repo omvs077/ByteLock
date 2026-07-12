@@ -217,6 +217,16 @@ QWidget* SettingsDialog::buildAboutPage()
     descLabel->setStyleSheet("font-size: 12px; margin-top: 8px;");
     layout->addWidget(descLabel);
 
+    auto* pathLabel = new QLabel(
+        "<div style='margin-top:14px; font-size:12px; color:#4b5563;'>"
+        "<b>Install location:</b> " + QCoreApplication::applicationDirPath() + "<br>"
+        "<b>Uninstall:</b> Start Menu &gt; ByteLock &gt; Uninstall, or run Uninstall.exe in the install folder "
+        "(requires your Master Recovery Key)."
+        "</div>", page);
+    pathLabel->setWordWrap(true);
+    pathLabel->setTextFormat(Qt::RichText);
+    layout->addWidget(pathLabel);
+
     auto* watermark = new QLabel(
         "<div style='margin-top:18px; font-size:12px;'>"
         "Crafted by <b>Dvvyom</b><br><br>"
@@ -333,3 +343,4 @@ void SettingsDialog::onExportTokenClicked()
         QMessageBox::warning(this, "Save Failed", "Could not write the escrow data file.");
     }
 }
+
