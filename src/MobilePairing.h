@@ -4,8 +4,7 @@
 
 namespace MobilePairing {
     bool isPaired();
-    QString recoveryPageUrl();
-    QByteArray generateUrlQrPng();
+    QByteArray generateQrPng(const QString& text);
     void storePairedPhoneKey(const QByteArray& publicKeyBase64);
     QByteArray pairedPhonePublicKey();
     void clearPairing();

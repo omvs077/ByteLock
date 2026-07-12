@@ -2,10 +2,8 @@
 #include <QDialog>
 
 class QLabel;
-class QCamera;
-class QMediaCaptureSession;
-class QVideoSink;
-class QVideoFrame;
+class QPushButton;
+class LocalPairingServer;
 
 class PairingDialog : public QDialog
 {
@@ -15,14 +13,19 @@ public:
     ~PairingDialog() override;
 
 private slots:
-    void onVideoFrame(const QVideoFrame& frame);
+    void onPhoneKeyReceived(const QByteArray& publicKeyBase64);
+    void onServerError(const QString& message);
+    void onTimeout();
 
 private:
+    void showWaitingState();
+    void showSuccessState();
+    void showErrorState(const QString& message);
+
     QLabel* m_qrLabel;
-    QLabel* m_previewLabel;
-    QLabel* m_statusLabel;
-    QCamera* m_camera;
-    QMediaCaptureSession* m_captureSession;
-    QVideoSink* m_videoSink;
+    QLabel* m_stepLabel;
+    QLabel* m_statusPanel;
+    QPushButton* m_closeButton;
+    LocalPairingServer* m_server;
     bool m_paired;
 };

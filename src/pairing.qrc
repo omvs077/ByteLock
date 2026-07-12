@@ -1,0 +1,6 @@
+﻿<RCC>
+  <qresource prefix="/pairing">
+    <file alias="pair.html">../resources/pairing/pair.html</file>
+    <file alias="nacl.min.js">../resources/pairing/nacl.min.js</file>
+  </qresource>
+</RCC>

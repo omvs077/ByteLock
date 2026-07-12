@@ -8,7 +8,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent Multimedia)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent Network)
 find_package(OpenSSL REQUIRED)
 find_package(ZXing CONFIG REQUIRED)
 
@@ -21,6 +21,8 @@ set(SOURCES
     src/SettingsDialog.cpp
     src/MobilePairing.cpp
     src/PairingDialog.cpp
+    src/LocalPairingServer.cpp
+    src/pairing.qrc
     resources/app.rc
     resources/icons.qrc
     src/engine/CryptoEngine.cpp
@@ -33,6 +35,7 @@ set(HEADERS
     src/engine/SecureBytes.h
     src/engine/CryptoEngine.h
     src/engine/FolderPacker.h
+    src/LocalPairingServer.h
 )
 
 add_executable(ByteLock WIN32 ${SOURCES} ${HEADERS})
@@ -40,7 +43,7 @@ add_executable(ByteLock WIN32 ${SOURCES} ${HEADERS})
 target_link_libraries(ByteLock PRIVATE
     Qt6::Widgets
     Qt6::Concurrent
-    Qt6::Multimedia
+    Qt6::Network
     ZXing::Core
     ZXing::ZXing
     OpenSSL::SSL

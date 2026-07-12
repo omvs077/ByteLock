@@ -10,21 +10,16 @@
 
 namespace MobilePairing {
 
-QString recoveryPageUrl()
-{
-    return "https://omvs077.github.io/ByteLock/recovery/";
-}
-
 bool isPaired()
 {
     return !pairedPhonePublicKey().isEmpty();
 }
 
-QByteArray generateUrlQrPng()
+QByteArray generateQrPng(const QString& text)
 {
     ZXing::MultiFormatWriter writer(ZXing::BarcodeFormat::QRCode);
     writer.setMargin(2);
-    auto matrix = writer.encode(recoveryPageUrl().toStdString(), 300, 300);
+    auto matrix = writer.encode(text.toStdString(), 300, 300);
 
     QImage img(matrix.width(), matrix.height(), QImage::Format_RGB32);
     for (int y = 0; y < matrix.height(); ++y) {
