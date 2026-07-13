@@ -31,4 +31,6 @@ private:
     QTcpServer* m_server;
     QString m_token;
     Mode m_mode;
+    QString m_boundHost;
+    bool m_tokenConsumed = false;
 };

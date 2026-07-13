@@ -90,7 +90,7 @@ MainWindow::MainWindow(const QString& startupContainerPath, QWidget* parent, con
     setupUi();
     connect(this, &MainWindow::progressChanged, this, &MainWindow::onProgressChanged);
     if (!m_startupContainerPath.isEmpty()) showStartupUnlockPrompt();
-    if (!lockFolderPath.isEmpty()) { lockContainer(lockFolderPath); close(); }
+    if (!lockFolderPath.isEmpty()) { lockContainer(lockFolderPath, true); }
 }
 
 MainWindow::~MainWindow() = default;
@@ -259,7 +259,7 @@ void MainWindow::onLockFolderClicked()
     lockContainer(folder);
 }
 
-void MainWindow::lockContainer(const QString& folder)
+void MainWindow::lockContainer(const QString& folder, bool closeWhenDone)
 {
     QInputDialog dlg;
     dlg.setWindowTitle("Set Password");
@@ -294,7 +294,7 @@ void MainWindow::lockContainer(const QString& folder)
     m_progressDialog->setValue(0);
 
     auto* watcher = new QFutureWatcher<Result<void>>(this);
-    connect(watcher, &QFutureWatcher<Result<void>>::finished, this, [this, watcher, folder, containerPath, keyPtr]() {
+    connect(watcher, &QFutureWatcher<Result<void>>::finished, this, [this, watcher, folder, containerPath, keyPtr, closeWhenDone]() {
         auto lockResult = watcher->result();
         m_progressDialog->close();
         m_progressDialog->deleteLater();
@@ -303,6 +303,7 @@ void MainWindow::lockContainer(const QString& folder)
 
         if (!lockResult) {
             m_statusLabel->setText("FAILED to lock folder: " + QString::fromStdString(lockResult.errorMessage()));
+            if (closeWhenDone) close();
             return;
         }
 
@@ -329,6 +330,7 @@ void MainWindow::lockContainer(const QString& folder)
             }
         }
         m_statusLabel->setText("Folder locked successfully.\nContainer: " + containerPath);
+        if (closeWhenDone) close();
     });
 
     QFuture<Result<void>> future = QtConcurrent::run([this, folder, containerPath, keyPtr, salt]() {

@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
 
     QString arg1 = argc > 1 ? QString::fromLocal8Bit(argv[1]) : QString();
     QString arg2 = argc > 2 ? QString::fromLocal8Bit(argv[2]) : QString();
-    if (arg1 == "--verify-recovery") {
+    if (arg1 == "--uninstall-cleanup") {
         QInputDialog dlg;
         dlg.setWindowTitle("ByteLock Uninstall");
         dlg.setLabelText("Enter your Master Recovery Key to continue uninstalling:");
@@ -83,10 +83,7 @@ int main(int argc, char* argv[])
         bool ok = (dlg.exec() == QDialog::Accepted);
         QString key = dlg.textValue();
         if (!ok || key.isEmpty() || !MasterConfig::verify(key)) return 1;
-        return 0;
-    }
 
-    if (arg1 == "--unlock-all") {
         auto escrowKey = MasterConfig::getEscrowKey();
         if (escrowKey.empty()) return 1;
         for (const QString& folderPath : MasterConfig::getLockedFolders()) {
@@ -119,7 +116,7 @@ int main(int argc, char* argv[])
             return 1;
         }
         MainWindow window(startupPath, nullptr, arg2);
-        return 0;
+        return app.exec();
     }
 
     if (!MasterConfig::exists()) {

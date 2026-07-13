@@ -36,7 +36,7 @@ private:
     void unlockContainer(const QString& containerPath);
     void unlockContainerAttempt(const QString& containerPath, const QString& warningText);
     void unlockContainerSilent(const QString& containerPath);
-    void lockContainer(const QString& folder);
+    void lockContainer(const QString& folder, bool closeWhenDone = false);
     QProgressDialog* m_progressDialog = nullptr;
 
 signals:

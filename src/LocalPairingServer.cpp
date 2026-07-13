@@ -16,10 +16,25 @@ LocalPairingServer::LocalPairingServer(Mode mode, QObject* parent)
 bool LocalPairingServer::start()
 {
     m_token = QUuid::createUuid().toString(QUuid::Id128);
+    m_tokenConsumed = false;
+
+    QString ip;
+    for (const auto& addr : QNetworkInterface::allAddresses()) {
+        if (addr.protocol() == QAbstractSocket::IPv4Protocol && !addr.isLoopback()) {
+            ip = addr.toString();
+            break;
+        }
+    }
+    if (ip.isEmpty()) {
+        emit errorOccurred("Could not detect a network connection.");
+        return false;
+    }
+
     if (!m_server->listen(QHostAddress::AnyIPv4, 47891)) {
         emit errorOccurred("Could not start local server: " + m_server->errorString());
         return false;
     }
+    m_boundHost = ip + ":47891";
     return true;
 }
 
@@ -30,16 +45,9 @@ void LocalPairingServer::stop()
 
 QString LocalPairingServer::pairingUrl() const
 {
-    QString ip;
-    for (const auto& addr : QNetworkInterface::allAddresses()) {
-        if (addr.protocol() == QAbstractSocket::IPv4Protocol && !addr.isLoopback()) {
-            ip = addr.toString();
-            break;
-        }
-    }
-    if (ip.isEmpty()) return QString();
+    if (m_boundHost.isEmpty()) return QString();
     QString path = (m_mode == Mode::Pairing) ? "/pair" : "/recover";
-    return QString("http://%1:%2%3?token=%4").arg(ip).arg(m_server->serverPort()).arg(path, m_token);
+    return QString("http://%1%2?token=%3").arg(m_boundHost, path, m_token);
 }
 
 void LocalPairingServer::onNewConnection()
@@ -61,10 +69,14 @@ void LocalPairingServer::handleSocket(QTcpSocket* socket)
         if (qIdx >= 0) path = path.left(qIdx);
 
         int contentLength = 0;
+        QString hostHeader;
         while (socket->canReadLine()) {
             QByteArray line = socket->readLine();
             if (line.startsWith("Content-Length:")) {
                 contentLength = line.mid(15).trimmed().toInt();
+            }
+            if (line.startsWith("Host:")) {
+                hostHeader = QString::fromUtf8(line.mid(5).trimmed());
             }
             if (line == "\r\n") break;
         }
@@ -77,11 +89,13 @@ void LocalPairingServer::handleSocket(QTcpSocket* socket)
             QByteArray body = socket->read(contentLength);
             QJsonObject obj = QJsonDocument::fromJson(body).object();
             QString reqToken = obj["token"].toString();
-            bool valid = (reqToken == m_token);
+            bool hostOk = (hostHeader == m_boundHost);
+            bool valid = (reqToken == m_token && !m_tokenConsumed && hostOk);
 
             if (valid && m_mode == Mode::Pairing) {
                 QString pubKey = obj["publicKey"].toString();
                 if (!pubKey.isEmpty()) {
+                    m_tokenConsumed = true;
                     emit phonePublicKeyReceived(pubKey.toUtf8());
                     responseBody = "{\"ok\":true}";
                 } else {
@@ -90,6 +104,7 @@ void LocalPairingServer::handleSocket(QTcpSocket* socket)
             } else if (valid && m_mode == Mode::Recovery) {
                 QString signature = obj["signature"].toString();
                 if (!signature.isEmpty()) {
+                    m_tokenConsumed = true;
                     emit recoverySignatureReceived(signature.toUtf8());
                     responseBody = "{\"ok\":true}";
                 } else {
