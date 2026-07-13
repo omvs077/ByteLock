@@ -75,10 +75,13 @@ int main(int argc, char* argv[])
     QString arg1 = argc > 1 ? QString::fromLocal8Bit(argv[1]) : QString();
     QString arg2 = argc > 2 ? QString::fromLocal8Bit(argv[2]) : QString();
     if (arg1 == "--verify-recovery") {
-        bool ok = false;
-        QString key = QInputDialog::getText(nullptr, "ByteLock Uninstall",
-            "Enter your Master Recovery Key to continue uninstalling:",
-            QLineEdit::Password, "", &ok);
+        QInputDialog dlg;
+        dlg.setWindowTitle("ByteLock Uninstall");
+        dlg.setLabelText("Enter your Master Recovery Key to continue uninstalling:");
+        dlg.setTextEchoMode(QLineEdit::Password);
+        if (auto* le = dlg.findChild<QLineEdit*>()) le->setMaxLength(100);
+        bool ok = (dlg.exec() == QDialog::Accepted);
+        QString key = dlg.textValue();
         if (!ok || key.isEmpty() || !MasterConfig::verify(key)) return 1;
         return 0;
     }

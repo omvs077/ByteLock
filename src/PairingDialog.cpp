@@ -23,7 +23,7 @@ PairingDialog::PairingDialog(QWidget* parent)
     heading->setStyleSheet("font-weight: 600; font-size: 16px; color: #1c2430;");
     layout->addWidget(heading);
 
-    m_stepLabel = new QLabel("Scan this code with your phone's camera to begin.", this);
+    m_stepLabel = new QLabel("Scan this code with your phone's camera to begin. Make sure your phone and this computer are on the same WiFi network.", this);
     m_stepLabel->setWordWrap(true);
     m_stepLabel->setStyleSheet("font-size: 13px; color: #4a5568;");
     layout->addWidget(m_stepLabel);
@@ -80,7 +80,7 @@ PairingDialog::~PairingDialog()
 
 void PairingDialog::showWaitingState()
 {
-    m_stepLabel->setText("Scan this code with your phone's camera to begin.");
+    m_stepLabel->setText("Scan this code with your phone's camera to begin. Make sure your phone and this computer are on the same WiFi network.");
     m_statusPanel->setStyleSheet(
         "background: #eef3fe; color: #2f6fed; font-size: 12px; padding: 12px; border-radius: 6px;");
     m_statusPanel->setText("Waiting for your phone...");

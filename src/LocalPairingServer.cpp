@@ -16,7 +16,7 @@ LocalPairingServer::LocalPairingServer(Mode mode, QObject* parent)
 bool LocalPairingServer::start()
 {
     m_token = QUuid::createUuid().toString(QUuid::Id128);
-    if (!m_server->listen(QHostAddress::AnyIPv4, 0)) {
+    if (!m_server->listen(QHostAddress::AnyIPv4, 47891)) {
         emit errorOccurred("Could not start local server: " + m_server->errorString());
         return false;
     }

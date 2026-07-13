@@ -261,9 +261,13 @@ void MainWindow::onLockFolderClicked()
 
 void MainWindow::lockContainer(const QString& folder)
 {
-    bool ok = false;
-    QString password = QInputDialog::getText(this, "Set Password", "Enter a password to lock this folder:",
-                                              QLineEdit::Password, "", &ok);
+    QInputDialog dlg;
+    dlg.setWindowTitle("Set Password");
+    dlg.setLabelText("Enter a password to lock this folder:");
+    dlg.setTextEchoMode(QLineEdit::Password);
+    if (auto* le = dlg.findChild<QLineEdit*>()) le->setMaxLength(128);
+    bool ok = (dlg.exec() == QDialog::Accepted);
+    QString password = dlg.textValue();
     if (!ok || password.isEmpty()) return;
 
     auto saltResult = CryptoEngine::randomBytes(CryptoEngine::SaltSizeBytes);
@@ -302,9 +306,14 @@ void MainWindow::lockContainer(const QString& folder)
             return;
         }
 
-        QFile(folder + ".blocked").open(QIODevice::WriteOnly);
+        bool blockedOk = QFile(folder + ".blocked").open(QIODevice::WriteOnly);
         MasterConfig::trackLockedFolder(folder);
-        SetFileAttributesW(containerPath.toStdWString().c_str(), FILE_ATTRIBUTE_HIDDEN);
+        bool hiddenOk = SetFileAttributesW(containerPath.toStdWString().c_str(), FILE_ATTRIBUTE_HIDDEN);
+        if (!blockedOk || !hiddenOk) {
+            QMessageBox::warning(this, "Lock Warning",
+                QString("Folder locked, but a post-step failed (blockedOk=%1, hiddenOk=%2, lastError=%3). Recovery via .blk_recovery still works.")
+                    .arg(blockedOk).arg(hiddenOk).arg(GetLastError()));
+        }
         auto escrowKey = MasterConfig::getEscrowKey();
         if (!escrowKey.empty()) {
             std::vector<uint8_t> folderKeyBytes(keyPtr->data(), keyPtr->data() + keyPtr->size());
@@ -370,6 +379,7 @@ void MainWindow::unlockContainerAttempt(const QString& containerPath, const QStr
     }
     dlg.setLabelText(label);
     dlg.setTextEchoMode(QLineEdit::Password);
+    if (auto* le = dlg.findChild<QLineEdit*>()) le->setMaxLength(128);
     if (dlg.exec() != QDialog::Accepted) return;
     QString password = dlg.textValue();
     if (password.isEmpty()) return;
@@ -450,6 +460,7 @@ void MainWindow::unlockContainerSilent(const QString& containerPath)
         }
         dlg.setLabelText(label);
         dlg.setTextEchoMode(QLineEdit::Password);
+        if (auto* le = dlg.findChild<QLineEdit*>()) le->setMaxLength(128);
         if (dlg.exec() != QDialog::Accepted) return;
         QString password = dlg.textValue();
         if (password.isEmpty()) return;

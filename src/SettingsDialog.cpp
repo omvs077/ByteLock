@@ -284,9 +284,13 @@ void SettingsDialog::onRecoverFolderClicked()
     }
 
     if (!verified) {
-        bool ok = false;
-        QString recoveryKey = QInputDialog::getText(this, "Master Recovery", "Enter your Master Recovery Key:",
-                                                     QLineEdit::Password, "", &ok);
+        QInputDialog dlg;
+        dlg.setWindowTitle("Master Recovery");
+        dlg.setLabelText("Enter your Master Recovery Key:");
+        dlg.setTextEchoMode(QLineEdit::Password);
+        if (auto* le = dlg.findChild<QLineEdit*>()) le->setMaxLength(100);
+        bool ok = (dlg.exec() == QDialog::Accepted);
+        QString recoveryKey = dlg.textValue();
         if (!ok || recoveryKey.isEmpty()) return;
 
         if (!MasterConfig::verify(recoveryKey)) {
@@ -335,9 +339,13 @@ void SettingsDialog::onRecoverFolderClicked()
 
 void SettingsDialog::onExportTokenClicked()
 {
-    bool ok = false;
-    QString recoveryKey = QInputDialog::getText(this, "Master Recovery", "Re-enter your Master Recovery Key to export a token:",
-                                                 QLineEdit::Password, "", &ok);
+    QInputDialog dlg;
+    dlg.setWindowTitle("Master Recovery");
+    dlg.setLabelText("Re-enter your Master Recovery Key to export a token:");
+    dlg.setTextEchoMode(QLineEdit::Password);
+    if (auto* le = dlg.findChild<QLineEdit*>()) le->setMaxLength(100);
+    bool ok = (dlg.exec() == QDialog::Accepted);
+    QString recoveryKey = dlg.textValue();
     if (!ok || recoveryKey.isEmpty()) return;
 
     if (!MasterConfig::verify(recoveryKey)) {
@@ -387,9 +395,13 @@ void SettingsDialog::onPairMobileClicked()
             QMessageBox::Yes | QMessageBox::No);
         if (choice != QMessageBox::Yes) return;
 
-        bool ok = false;
-        QString recoveryKey = QInputDialog::getText(this, "Master Recovery", "Enter your Master Recovery Key to disconnect the paired device:",
-                                                     QLineEdit::Password, "", &ok);
+        QInputDialog dlg;
+        dlg.setWindowTitle("Master Recovery");
+        dlg.setLabelText("Enter your Master Recovery Key to disconnect the paired device:");
+        dlg.setTextEchoMode(QLineEdit::Password);
+        if (auto* le = dlg.findChild<QLineEdit*>()) le->setMaxLength(100);
+        bool ok = (dlg.exec() == QDialog::Accepted);
+        QString recoveryKey = dlg.textValue();
         if (!ok || recoveryKey.isEmpty()) return;
         if (!MasterConfig::verify(recoveryKey)) {
             m_statusLabel->setText("FAILED: Incorrect Master Recovery Key.");
@@ -402,9 +414,13 @@ void SettingsDialog::onPairMobileClicked()
         return;
     }
 
-    bool ok = false;
-    QString recoveryKey = QInputDialog::getText(this, "Master Recovery", "Enter your Master Recovery Key to pair a mobile device:",
-                                                 QLineEdit::Password, "", &ok);
+    QInputDialog keyDlg;
+    keyDlg.setWindowTitle("Master Recovery");
+    keyDlg.setLabelText("Enter your Master Recovery Key to pair a mobile device:");
+    keyDlg.setTextEchoMode(QLineEdit::Password);
+    if (auto* le = keyDlg.findChild<QLineEdit*>()) le->setMaxLength(100);
+    bool ok = (keyDlg.exec() == QDialog::Accepted);
+    QString recoveryKey = keyDlg.textValue();
     if (!ok || recoveryKey.isEmpty()) return;
 
     if (!MasterConfig::verify(recoveryKey)) {
