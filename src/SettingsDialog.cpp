@@ -145,6 +145,7 @@ QWidget* SettingsDialog::buildMasterRecoveryPage()
     connect(m_recoverButton, &QPushButton::clicked, this, &SettingsDialog::onRecoverFolderClicked);
     connect(m_exportButton, &QPushButton::clicked, this, &SettingsDialog::onExportTokenClicked);
     connect(m_pairButton, &QPushButton::clicked, this, &SettingsDialog::onPairMobileClicked);
+    updatePairButtonState();
 
     return page;
 }
@@ -380,6 +381,27 @@ void SettingsDialog::onExportTokenClicked()
 
 void SettingsDialog::onPairMobileClicked()
 {
+    if (MobilePairing::isPaired()) {
+        auto choice = QMessageBox::question(this, "Mobile Device Paired",
+            "A phone is already paired with ByteLock. Disconnect it?",
+            QMessageBox::Yes | QMessageBox::No);
+        if (choice != QMessageBox::Yes) return;
+
+        bool ok = false;
+        QString recoveryKey = QInputDialog::getText(this, "Master Recovery", "Enter your Master Recovery Key to disconnect the paired device:",
+                                                     QLineEdit::Password, "", &ok);
+        if (!ok || recoveryKey.isEmpty()) return;
+        if (!MasterConfig::verify(recoveryKey)) {
+            m_statusLabel->setText("FAILED: Incorrect Master Recovery Key.");
+            return;
+        }
+
+        MobilePairing::clearPairing();
+        m_statusLabel->setText("Mobile device disconnected.");
+        updatePairButtonState();
+        return;
+    }
+
     bool ok = false;
     QString recoveryKey = QInputDialog::getText(this, "Master Recovery", "Enter your Master Recovery Key to pair a mobile device:",
                                                  QLineEdit::Password, "", &ok);
@@ -393,5 +415,15 @@ void SettingsDialog::onPairMobileClicked()
     PairingDialog dlg(this);
     if (dlg.exec() == QDialog::Accepted) {
         m_statusLabel->setText("Mobile device paired successfully.");
+        updatePairButtonState();
+    }
+}
+
+void SettingsDialog::updatePairButtonState()
+{
+    if (MobilePairing::isPaired()) {
+        m_pairButton->setText("   Mobile Device Paired \u2014 Tap to Disconnect");
+    } else {
+        m_pairButton->setText("   Pair Mobile Device...");
     }
 }

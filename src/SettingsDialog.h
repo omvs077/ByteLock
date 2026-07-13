@@ -21,6 +21,7 @@ private:
     QWidget* buildGeneralPage();
     QWidget* buildSecurityPage();
     QWidget* buildAboutPage();
+    void updatePairButtonState();
 
     QLabel* m_statusLabel = nullptr;
     QPushButton* m_recoverButton = nullptr;
