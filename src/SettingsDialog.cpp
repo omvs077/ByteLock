@@ -1,6 +1,8 @@
 ﻿#include "SettingsDialog.h"
 #include "MasterConfig.h"
 #include "PairingDialog.h"
+#include "RecoveryDialog.h"
+#include "MobilePairing.h"
 #include "engine/CryptoEngine.h"
 #include "engine/FolderPacker.h"
 #include "engine/SecureBytes.h"
@@ -265,16 +267,32 @@ void SettingsDialog::onRecoverFolderClicked()
     QString sidecarPath = blockedPath;
     sidecarPath.replace(".blocked", ".blk_recovery");
 
-    bool ok = false;
-    QString recoveryKey = QInputDialog::getText(this, "Master Recovery", "Enter your Master Recovery Key:",
-                                                 QLineEdit::Password, "", &ok);
-    if (!ok || recoveryKey.isEmpty()) return;
-
-    if (!MasterConfig::verify(recoveryKey)) {
-        m_statusLabel->setText("FAILED: Incorrect Master Recovery Key.");
-        return;
+    bool verified = false;
+    if (MobilePairing::isPaired()) {
+        auto choice = QMessageBox::question(this, "Recover Folder",
+            "A phone is paired with ByteLock. Recover using your phone instead of typing the Master Recovery Key?",
+            QMessageBox::Yes | QMessageBox::No);
+        if (choice == QMessageBox::Yes) {
+            RecoveryDialog dlg(this);
+            if (dlg.exec() == QDialog::Accepted && dlg.wasVerified()) {
+                verified = true;
+            } else {
+                return;
+            }
+        }
     }
 
+    if (!verified) {
+        bool ok = false;
+        QString recoveryKey = QInputDialog::getText(this, "Master Recovery", "Enter your Master Recovery Key:",
+                                                     QLineEdit::Password, "", &ok);
+        if (!ok || recoveryKey.isEmpty()) return;
+
+        if (!MasterConfig::verify(recoveryKey)) {
+            m_statusLabel->setText("FAILED: Incorrect Master Recovery Key.");
+            return;
+        }
+    }
     auto escrowKey = MasterConfig::getEscrowKey();
     if (escrowKey.empty()) {
         m_statusLabel->setText("FAILED: Escrow key unavailable on this machine.");
@@ -377,5 +395,3 @@ void SettingsDialog::onPairMobileClicked()
         m_statusLabel->setText("Mobile device paired successfully.");
     }
 }
-
-

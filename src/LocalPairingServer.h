@@ -10,7 +10,9 @@ class LocalPairingServer : public QObject
 {
     Q_OBJECT
 public:
-    explicit LocalPairingServer(QObject* parent = nullptr);
+    enum class Mode { Pairing, Recovery };
+
+    explicit LocalPairingServer(Mode mode, QObject* parent = nullptr);
     bool start();
     void stop();
     QString pairingUrl() const;
@@ -18,6 +20,7 @@ public:
 
 signals:
     void phonePublicKeyReceived(const QByteArray& publicKeyBase64);
+    void recoverySignatureReceived(const QByteArray& signatureBase64);
     void errorOccurred(const QString& message);
 
 private slots:
@@ -27,4 +30,5 @@ private:
     void handleSocket(QTcpSocket* socket);
     QTcpServer* m_server;
     QString m_token;
+    Mode m_mode;
 };

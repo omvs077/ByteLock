@@ -7,7 +7,8 @@
 #include <QJsonObject>
 #include <QFile>
 
-LocalPairingServer::LocalPairingServer(QObject* parent) : QObject(parent), m_server(new QTcpServer(this))
+LocalPairingServer::LocalPairingServer(Mode mode, QObject* parent)
+    : QObject(parent), m_server(new QTcpServer(this)), m_mode(mode)
 {
     connect(m_server, &QTcpServer::newConnection, this, &LocalPairingServer::onNewConnection);
 }
@@ -37,7 +38,8 @@ QString LocalPairingServer::pairingUrl() const
         }
     }
     if (ip.isEmpty()) return QString();
-    return QString("http://%1:%2/pair?token=%3").arg(ip).arg(m_server->serverPort()).arg(m_token);
+    QString path = (m_mode == Mode::Pairing) ? "/pair" : "/recover";
+    return QString("http://%1:%2%3?token=%4").arg(ip).arg(m_server->serverPort()).arg(path, m_token);
 }
 
 void LocalPairingServer::onNewConnection()
@@ -75,10 +77,24 @@ void LocalPairingServer::handleSocket(QTcpSocket* socket)
             QByteArray body = socket->read(contentLength);
             QJsonObject obj = QJsonDocument::fromJson(body).object();
             QString reqToken = obj["token"].toString();
-            QString pubKey = obj["publicKey"].toString();
-            if (reqToken == m_token && !pubKey.isEmpty()) {
-                emit phonePublicKeyReceived(pubKey.toUtf8());
-                responseBody = "{\"ok\":true}";
+            bool valid = (reqToken == m_token);
+
+            if (valid && m_mode == Mode::Pairing) {
+                QString pubKey = obj["publicKey"].toString();
+                if (!pubKey.isEmpty()) {
+                    emit phonePublicKeyReceived(pubKey.toUtf8());
+                    responseBody = "{\"ok\":true}";
+                } else {
+                    responseBody = "{\"ok\":false}";
+                }
+            } else if (valid && m_mode == Mode::Recovery) {
+                QString signature = obj["signature"].toString();
+                if (!signature.isEmpty()) {
+                    emit recoverySignatureReceived(signature.toUtf8());
+                    responseBody = "{\"ok\":true}";
+                } else {
+                    responseBody = "{\"ok\":false}";
+                }
             } else {
                 responseBody = "{\"ok\":false}";
             }
@@ -87,6 +103,13 @@ void LocalPairingServer::handleSocket(QTcpSocket* socket)
             QFile js(":/pairing/nacl.min.js");
             if (js.open(QIODevice::ReadOnly)) responseBody = js.readAll();
             contentType = "application/javascript";
+        } else if (m_mode == Mode::Recovery) {
+            QFile page(":/pairing/recover.html");
+            if (page.open(QIODevice::ReadOnly)) {
+                responseBody = page.readAll();
+            } else {
+                responseBody = "<html><body>Page not found</body></html>";
+            }
         } else {
             QFile page(":/pairing/pair.html");
             if (page.open(QIODevice::ReadOnly)) {

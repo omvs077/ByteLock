@@ -22,6 +22,7 @@ set(SOURCES
     src/MobilePairing.cpp
     src/PairingDialog.cpp
     src/LocalPairingServer.cpp
+    src/RecoveryDialog.cpp
     src/pairing.qrc
     resources/app.rc
     resources/icons.qrc
@@ -36,6 +37,7 @@ set(HEADERS
     src/engine/CryptoEngine.h
     src/engine/FolderPacker.h
     src/LocalPairingServer.h
+    src/RecoveryDialog.h
 )
 
 add_executable(ByteLock WIN32 ${SOURCES} ${HEADERS})

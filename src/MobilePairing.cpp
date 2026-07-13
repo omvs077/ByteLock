@@ -7,6 +7,7 @@
 #include <QBuffer>
 #include <ZXing/MultiFormatWriter.h>
 #include <ZXing/BitMatrix.h>
+#include <openssl/evp.h>
 
 namespace MobilePairing {
 
@@ -76,6 +77,28 @@ void clearPairing()
     if (outFile.open(QIODevice::WriteOnly)) {
         outFile.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
     }
+}
+
+bool verifySignature(const QByteArray& message, const QByteArray& signatureBase64, const QByteArray& publicKeyBase64)
+{
+    QByteArray pubKey = QByteArray::fromBase64(publicKeyBase64);
+    QByteArray sig = QByteArray::fromBase64(signatureBase64);
+    if (pubKey.size() != 32 || sig.size() != 64) return false;
+
+    EVP_PKEY* pkey = EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, nullptr,
+        reinterpret_cast<const unsigned char*>(pubKey.constData()), pubKey.size());
+    if (!pkey) return false;
+
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+    bool ok = false;
+    if (EVP_DigestVerifyInit(ctx, nullptr, nullptr, nullptr, pkey) == 1) {
+        ok = EVP_DigestVerify(ctx,
+            reinterpret_cast<const unsigned char*>(sig.constData()), sig.size(),
+            reinterpret_cast<const unsigned char*>(message.constData()), message.size()) == 1;
+    }
+    EVP_MD_CTX_free(ctx);
+    EVP_PKEY_free(pkey);
+    return ok;
 }
 
 }

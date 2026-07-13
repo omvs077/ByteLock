@@ -8,4 +8,5 @@ namespace MobilePairing {
     void storePairedPhoneKey(const QByteArray& publicKeyBase64);
     QByteArray pairedPhonePublicKey();
     void clearPairing();
+    bool verifySignature(const QByteArray& message, const QByteArray& signatureBase64, const QByteArray& publicKeyBase64);
 }
