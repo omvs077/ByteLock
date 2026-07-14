@@ -19,6 +19,7 @@ namespace MasterConfig {
     void recordFailedAttempt();
     void recordSuccessfulAttempt();
     qint64 secondsUntilNextAttempt();
+    quint16 pairingServerPort();
 }
 
 

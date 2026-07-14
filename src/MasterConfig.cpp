@@ -10,6 +10,7 @@
 #include <QDir>
 #include <QDateTime>
 #include <algorithm>
+#include <QRandomGenerator>
 
 #include <openssl/crypto.h>
 #include <windows.h>
@@ -335,3 +336,28 @@ qint64 MasterConfig::secondsUntilNextAttempt()
 }
 
 
+
+
+quint16 MasterConfig::pairingServerPort()
+{
+    QFile inFile(configPath());
+    QJsonObject root;
+    if (inFile.open(QIODevice::ReadOnly)) {
+        root = QJsonDocument::fromJson(inFile.readAll()).object();
+        inFile.close();
+    }
+
+    int existing = root["pairing_server_port"].toInt(0);
+    if (existing >= 20000 && existing <= 60000) {
+        return static_cast<quint16>(existing);
+    }
+
+    quint16 newPort = static_cast<quint16>(QRandomGenerator::global()->bounded(20000, 60001));
+    root["pairing_server_port"] = newPort;
+
+    QFile outFile(configPath());
+    if (outFile.open(QIODevice::WriteOnly)) {
+        outFile.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    }
+    return newPort;
+}

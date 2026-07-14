@@ -152,6 +152,40 @@ bool tryParseManifestPrefix(const std::vector<uint8_t>& buf,
     return true;
 }
 
+void secureWipeFile(const fs::path& path)
+{
+    std::error_code sizeEc;
+    uint64_t fileSize = fs::file_size(path, sizeEc);
+    if (sizeEc) return;
+
+    std::ofstream out(path, std::ios::binary | std::ios::in | std::ios::out);
+    if (!out) return;
+
+    constexpr size_t kWipeChunk = 1 * 1024 * 1024;
+    uint64_t remaining = fileSize;
+    while (remaining > 0) {
+        size_t chunkLen = static_cast<size_t>((remaining < kWipeChunk) ? remaining : kWipeChunk);
+        auto randomChunk = CryptoEngine::randomBytes(chunkLen);
+        if (!randomChunk) break;
+        out.write(reinterpret_cast<const char*>(randomChunk.value().data()), static_cast<std::streamsize>(chunkLen));
+        if (!out) break;
+        remaining -= chunkLen;
+    }
+    out.flush();
+    out.close();
+}
+
+void secureWipeFolder(const fs::path& folder)
+{
+    std::error_code ec;
+    for (auto it = fs::recursive_directory_iterator(folder, ec); it != fs::recursive_directory_iterator(); it.increment(ec)) {
+        if (ec) break;
+        if (it->is_regular_file()) {
+            secureWipeFile(it->path());
+        }
+    }
+}
+
 } // namespace
 
 Result<void> FolderPacker::lockFolder(const std::string& folderPath,
@@ -263,6 +297,7 @@ Result<void> FolderPacker::lockFolder(const std::string& folderPath,
         out.close();
 
         std::error_code ec;
+        secureWipeFolder(folder);
         fs::remove_all(folder, ec);
         if (ec) {
             return Result<void>::fail(ErrorCode::FileWriteError,

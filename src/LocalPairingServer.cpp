@@ -1,4 +1,5 @@
 ﻿#include "LocalPairingServer.h"
+#include "MasterConfig.h"
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QNetworkInterface>
@@ -30,11 +31,12 @@ bool LocalPairingServer::start()
         return false;
     }
 
-    if (!m_server->listen(QHostAddress::AnyIPv4, 47891)) {
+    quint16 port = MasterConfig::pairingServerPort();
+    if (!m_server->listen(QHostAddress::AnyIPv4, port)) {
         emit errorOccurred("Could not start local server: " + m_server->errorString());
         return false;
     }
-    m_boundHost = ip + ":47891";
+    m_boundHost = ip + ":" + QString::number(port);
     return true;
 }
 
