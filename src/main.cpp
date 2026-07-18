@@ -1,4 +1,6 @@
 ﻿#include <QApplication>
+#include <QStyleFactory>
+#include <QPalette>
 #include <QMessageBox>
 #include <QIcon>
 
@@ -12,6 +14,7 @@
 #include <QFile>
 #include "SetupDialog.h"
 #include "WelcomeGuideDialog.h"
+#include "PasswordPromptDialog.h"
 
 using namespace bytelock;
 
@@ -62,6 +65,20 @@ const char* kGlobalStyle = R"(
     QMessageBox QLabel {
         font-size: 12px;
     }
+    QCheckBox::indicator {
+        width: 16px;
+        height: 16px;
+        border: 1.5px solid #9aa3af;
+        border-radius: 3px;
+        background-color: #ffffff;
+    }
+    QCheckBox::indicator:hover {
+        border-color: #2f6fed;
+    }
+    QCheckBox::indicator:checked {
+        background-color: #2f6fed;
+        border-color: #2f6fed;
+    }
 )";
 
 } // namespace
@@ -69,17 +86,40 @@ const char* kGlobalStyle = R"(
 int main(int argc, char* argv[])
 {
     QApplication app(argc, argv);
+    QApplication::setStyle(QStyleFactory::create("Fusion"));
+    QPalette lightPalette;
+    lightPalette.setColor(QPalette::Window, QColor("#ffffff"));
+    lightPalette.setColor(QPalette::WindowText, QColor("#1f2937"));
+    lightPalette.setColor(QPalette::Base, QColor("#ffffff"));
+    lightPalette.setColor(QPalette::AlternateBase, QColor("#f7f9fc"));
+    lightPalette.setColor(QPalette::ToolTipBase, QColor("#ffffff"));
+    lightPalette.setColor(QPalette::ToolTipText, QColor("#1f2937"));
+    lightPalette.setColor(QPalette::Text, QColor("#1f2937"));
+    lightPalette.setColor(QPalette::Button, QColor("#f7f9fc"));
+    lightPalette.setColor(QPalette::ButtonText, QColor("#1f2937"));
+    lightPalette.setColor(QPalette::BrightText, QColor("#dc2626"));
+    lightPalette.setColor(QPalette::Highlight, QColor("#2f6fed"));
+    lightPalette.setColor(QPalette::HighlightedText, QColor("#ffffff"));
+    lightPalette.setColor(QPalette::PlaceholderText, QColor("#9aa3af"));
+    lightPalette.setColor(QPalette::Disabled, QPalette::WindowText, QColor("#9aa3af"));
+    lightPalette.setColor(QPalette::Disabled, QPalette::Text, QColor("#9aa3af"));
+    lightPalette.setColor(QPalette::Disabled, QPalette::ButtonText, QColor("#9aa3af"));
+    lightPalette.setColor(QPalette::Mid, QColor("#9aa3af"));
+    lightPalette.setColor(QPalette::Dark, QColor("#6b7280"));
+    lightPalette.setColor(QPalette::Light, QColor("#ffffff"));
+    lightPalette.setColor(QPalette::Shadow, QColor("#374151"));
+    lightPalette.setColor(QPalette::Midlight, QColor("#e5e7eb"));
+    QApplication::setPalette(lightPalette);
     app.setStyleSheet(kGlobalStyle);
     app.setWindowIcon(QIcon(":/icons/app.ico"));
 
     QString arg1 = argc > 1 ? QString::fromLocal8Bit(argv[1]) : QString();
     QString arg2 = argc > 2 ? QString::fromLocal8Bit(argv[2]) : QString();
     if (arg1 == "--uninstall-cleanup") {
-        QInputDialog dlg;
+        PasswordPromptDialog dlg;
         dlg.setWindowTitle("ByteLock Uninstall");
         dlg.setLabelText("Enter your Master Recovery Key to continue uninstalling:");
-        dlg.setTextEchoMode(QLineEdit::Password);
-        if (auto* le = dlg.findChild<QLineEdit*>()) le->setMaxLength(100);
+        dlg.setMaxLength(100);
         bool ok = (dlg.exec() == QDialog::Accepted);
         QString key = dlg.textValue();
         if (!ok || key.isEmpty() || !MasterConfig::verify(key)) return 1;

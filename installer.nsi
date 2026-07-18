@@ -44,6 +44,7 @@ Section "Install"
     WriteRegStr HKCU "Software\Classes\Directory\shell\ByteLock\command" "" '"$INSTDIR\ByteLock.exe" --lock "%1"'
 SectionEnd
 
+Section "Uninstall"
     ExecWait '"$INSTDIR\ByteLock.exe" --uninstall-cleanup' $0
     ${If} $0 != 0
         MessageBox MB_OK|MB_ICONSTOP "Incorrect recovery key. Uninstall aborted."

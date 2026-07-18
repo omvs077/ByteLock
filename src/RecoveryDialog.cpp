@@ -134,5 +134,5 @@ void RecoveryDialog::onServerError(const QString& message)
 void RecoveryDialog::onTimeout()
 {
     if (m_verified) return;
-    showErrorState("This is taking a while \u2014 check your phone's WiFi connection and try again.");
+    showErrorState("This is taking a while \u2014 check your phone's WiFi connection, and make sure Windows Firewall isn't blocking ByteLock (check for a permission prompt, or allow it manually in Windows Security).");
 }

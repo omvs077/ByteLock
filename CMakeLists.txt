@@ -1,5 +1,5 @@
 ﻿cmake_minimum_required(VERSION 3.21)
-project(ByteLock VERSION 0.1.0 LANGUAGES CXX)
+project(ByteLock VERSION 1.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -23,6 +23,7 @@ set(SOURCES
     src/PairingDialog.cpp
     src/LocalPairingServer.cpp
     src/RecoveryDialog.cpp
+    src/PasswordPromptDialog.cpp
     src/pairing.qrc
     resources/app.rc
     resources/icons.qrc
@@ -38,6 +39,7 @@ set(HEADERS
     src/engine/FolderPacker.h
     src/LocalPairingServer.h
     src/RecoveryDialog.h
+    src/PasswordPromptDialog.h
 )
 
 add_executable(ByteLock WIN32 ${SOURCES} ${HEADERS})

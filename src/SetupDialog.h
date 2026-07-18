@@ -20,5 +20,6 @@ private:
     QString m_recoveryKey;
     QLineEdit* m_keyField;
     QCheckBox* m_confirmCheck;
+    QCheckBox* m_liabilityCheck;
     QPushButton* m_okButton;
 };

@@ -68,6 +68,17 @@ SetupDialog::SetupDialog(QWidget* parent)
     m_confirmCheck = new QCheckBox("I have saved this key securely");
     layout->addWidget(m_confirmCheck);
 
+    auto* liabilityLabel = new QLabel(
+        "I have read the README and understand that ByteLock is zero-knowledge: if I "
+        "lose a folder password, lose my Master Recovery Key, and have not paired a "
+        "recovery phone, my data cannot be recovered by anyone, including the developer.");
+    liabilityLabel->setWordWrap(true);
+    liabilityLabel->setStyleSheet("color: #6b7280; font-size: 11px;");
+    layout->addWidget(liabilityLabel);
+
+    m_liabilityCheck = new QCheckBox("I accept sole responsibility for safeguarding these.");
+    layout->addWidget(m_liabilityCheck);
+
     m_okButton = new QPushButton("Continue");
     m_okButton->setEnabled(false);
     layout->addWidget(m_okButton);
@@ -75,6 +86,7 @@ SetupDialog::SetupDialog(QWidget* parent)
     connect(copyBtn, &QPushButton::clicked, this, &SetupDialog::onCopyClicked);
     connect(saveBtn, &QPushButton::clicked, this, &SetupDialog::onSaveClicked);
     connect(m_confirmCheck, &QCheckBox::toggled, this, &SetupDialog::onCheckboxToggled);
+    connect(m_liabilityCheck, &QCheckBox::toggled, this, &SetupDialog::onCheckboxToggled);
     connect(m_okButton, &QPushButton::clicked, this, [this]() {
 
         accept();
@@ -119,8 +131,8 @@ void SetupDialog::onSaveClicked()
     }
 }
 
-void SetupDialog::onCheckboxToggled(bool checked)
+void SetupDialog::onCheckboxToggled(bool)
 {
-    m_okButton->setEnabled(checked);
+    m_okButton->setEnabled(m_confirmCheck->isChecked() && m_liabilityCheck->isChecked());
 }
 

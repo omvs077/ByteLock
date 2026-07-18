@@ -16,7 +16,28 @@ FIRST RUN - MASTER RECOVERY KEY
 
 RECOVERING A FOLDER (forgot password)
   Open ByteLock -> Settings -> Master Recovery -> "Recover a Folder..."
-  Select the .blocked file, enter your Master Recovery Key.
+  Select the .blocked file, then either enter your Master Recovery Key
+  or, if you have paired a phone (see below), recover using your phone instead.
+
+MOBILE RECOVERY (optional)
+  Pair a phone once so you can recover folders without typing your
+  Master Recovery Key each time.
+
+  To pair:
+    Open ByteLock -> Settings -> Master Recovery -> "Pair Mobile Device..."
+    Enter your Master Recovery Key, then scan the QR code with your
+    phone's camera. Your phone and this computer must be on the same
+    WiFi network. No app install is required on the phone.
+
+  To recover using your paired phone:
+    Open ByteLock -> Settings -> Master Recovery -> "Recover a Folder..."
+    Select the .blocked file, choose "Yes" when asked to use your phone,
+    then scan the QR code with your phone.
+
+  To disconnect a paired phone:
+    Open ByteLock -> Settings -> Master Recovery -> the pairing button
+    will show "Mobile Device Paired - Tap to Disconnect". Tap it and
+    enter your Master Recovery Key to disconnect.
 
 UNINSTALLING
   You will be asked for your Master Recovery Key. All locked folders

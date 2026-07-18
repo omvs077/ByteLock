@@ -1,12 +1,12 @@
 ﻿#include "ui/MainWindow.h"
 #include "MasterConfig.h"
 #include "SettingsDialog.h"
+#include "PasswordPromptDialog.h"
 
 #include <QCoreApplication>
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileDialog>
-#include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
@@ -261,11 +261,10 @@ void MainWindow::onLockFolderClicked()
 
 void MainWindow::lockContainer(const QString& folder, bool closeWhenDone)
 {
-    QInputDialog dlg;
+    PasswordPromptDialog dlg;
     dlg.setWindowTitle("Set Password");
     dlg.setLabelText("Enter a password to lock this folder:");
-    dlg.setTextEchoMode(QLineEdit::Password);
-    if (auto* le = dlg.findChild<QLineEdit*>()) le->setMaxLength(128);
+    dlg.setMaxLength(128);
     bool ok = (dlg.exec() == QDialog::Accepted);
     QString password = dlg.textValue();
     if (!ok || password.isEmpty()) return;
@@ -373,15 +372,14 @@ void MainWindow::unlockContainerAttempt(const QString& containerPath, const QStr
         return;
     }
 
-    QInputDialog dlg(this);
+    PasswordPromptDialog dlg(this);
     dlg.setWindowTitle("Enter Password");
     QString label = "Enter the password for this folder:";
     if (!warningText.isEmpty()) {
         label = "<span style='color:#dc2626; font-weight:600;'>" + warningText + "</span><br>" + label;
     }
     dlg.setLabelText(label);
-    dlg.setTextEchoMode(QLineEdit::Password);
-    if (auto* le = dlg.findChild<QLineEdit*>()) le->setMaxLength(128);
+    dlg.setMaxLength(128);
     if (dlg.exec() != QDialog::Accepted) return;
     QString password = dlg.textValue();
     if (password.isEmpty()) return;
@@ -454,15 +452,14 @@ void MainWindow::unlockContainerSilent(const QString& containerPath)
         auto saltResult = FolderPacker::peekContainerSalt(containerPath.toStdString());
         if (!saltResult) return;
 
-        QInputDialog dlg(this);
+        PasswordPromptDialog dlg(this);
         dlg.setWindowTitle("Enter Password");
         QString label = "Enter the password for this folder:";
         if (!warningText.isEmpty()) {
             label = "<span style='color:#dc2626; font-weight:600;'>" + warningText + "</span><br>" + label;
         }
         dlg.setLabelText(label);
-        dlg.setTextEchoMode(QLineEdit::Password);
-        if (auto* le = dlg.findChild<QLineEdit*>()) le->setMaxLength(128);
+        dlg.setMaxLength(128);
         if (dlg.exec() != QDialog::Accepted) return;
         QString password = dlg.textValue();
         if (password.isEmpty()) return;

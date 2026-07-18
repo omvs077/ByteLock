@@ -3,6 +3,7 @@
 #include "PairingDialog.h"
 #include "RecoveryDialog.h"
 #include "MobilePairing.h"
+#include "PasswordPromptDialog.h"
 #include "engine/CryptoEngine.h"
 #include "engine/FolderPacker.h"
 #include "engine/SecureBytes.h"
@@ -284,11 +285,10 @@ void SettingsDialog::onRecoverFolderClicked()
     }
 
     if (!verified) {
-        QInputDialog dlg;
+        PasswordPromptDialog dlg;
         dlg.setWindowTitle("Master Recovery");
         dlg.setLabelText("Enter your Master Recovery Key:");
-        dlg.setTextEchoMode(QLineEdit::Password);
-        if (auto* le = dlg.findChild<QLineEdit*>()) le->setMaxLength(100);
+        dlg.setMaxLength(100);
         bool ok = (dlg.exec() == QDialog::Accepted);
         QString recoveryKey = dlg.textValue();
         if (!ok || recoveryKey.isEmpty()) return;
@@ -339,11 +339,10 @@ void SettingsDialog::onRecoverFolderClicked()
 
 void SettingsDialog::onExportTokenClicked()
 {
-    QInputDialog dlg;
+    PasswordPromptDialog dlg;
     dlg.setWindowTitle("Master Recovery");
     dlg.setLabelText("Re-enter your Master Recovery Key to export a token:");
-    dlg.setTextEchoMode(QLineEdit::Password);
-    if (auto* le = dlg.findChild<QLineEdit*>()) le->setMaxLength(100);
+    dlg.setMaxLength(100);
     bool ok = (dlg.exec() == QDialog::Accepted);
     QString recoveryKey = dlg.textValue();
     if (!ok || recoveryKey.isEmpty()) return;
@@ -394,12 +393,10 @@ void SettingsDialog::onPairMobileClicked()
             "A phone is already paired with ByteLock. Disconnect it?",
             QMessageBox::Yes | QMessageBox::No);
         if (choice != QMessageBox::Yes) return;
-
-        QInputDialog dlg;
+        PasswordPromptDialog dlg;
         dlg.setWindowTitle("Master Recovery");
         dlg.setLabelText("Enter your Master Recovery Key to disconnect the paired device:");
-        dlg.setTextEchoMode(QLineEdit::Password);
-        if (auto* le = dlg.findChild<QLineEdit*>()) le->setMaxLength(100);
+        dlg.setMaxLength(100);
         bool ok = (dlg.exec() == QDialog::Accepted);
         QString recoveryKey = dlg.textValue();
         if (!ok || recoveryKey.isEmpty()) return;
@@ -414,11 +411,10 @@ void SettingsDialog::onPairMobileClicked()
         return;
     }
 
-    QInputDialog keyDlg;
+    PasswordPromptDialog keyDlg;
     keyDlg.setWindowTitle("Master Recovery");
     keyDlg.setLabelText("Enter your Master Recovery Key to pair a mobile device:");
-    keyDlg.setTextEchoMode(QLineEdit::Password);
-    if (auto* le = keyDlg.findChild<QLineEdit*>()) le->setMaxLength(100);
+    keyDlg.setMaxLength(100);
     bool ok = (keyDlg.exec() == QDialog::Accepted);
     QString recoveryKey = keyDlg.textValue();
     if (!ok || recoveryKey.isEmpty()) return;

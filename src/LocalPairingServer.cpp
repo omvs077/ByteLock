@@ -20,12 +20,35 @@ bool LocalPairingServer::start()
     m_tokenConsumed = false;
 
     QString ip;
-    for (const auto& addr : QNetworkInterface::allAddresses()) {
-        if (addr.protocol() == QAbstractSocket::IPv4Protocol && !addr.isLoopback()) {
-            ip = addr.toString();
-            break;
+    QString fallbackIp;
+    static const QStringList kVirtualNamePatterns = {
+        "virtualbox", "vmware", "hyper-v", "vethernet", "docker",
+        "loopback", "teredo", "tap-", "tun", "wsl", "npcap", "vpn"
+    };
+    for (const auto& iface : QNetworkInterface::allInterfaces()) {
+        auto flags = iface.flags();
+        if (!flags.testFlag(QNetworkInterface::IsUp) || !flags.testFlag(QNetworkInterface::IsRunning)) continue;
+        if (flags.testFlag(QNetworkInterface::IsLoopBack)) continue;
+
+        QString lowerName = iface.humanReadableName().toLower();
+        bool looksVirtual = false;
+        for (const auto& pattern : kVirtualNamePatterns) {
+            if (lowerName.contains(pattern)) { looksVirtual = true; break; }
         }
+
+        for (const auto& entry : iface.addressEntries()) {
+            const auto& addr = entry.ip();
+            if (addr.protocol() != QAbstractSocket::IPv4Protocol || addr.isLoopback()) continue;
+
+            if (!looksVirtual && (iface.type() == QNetworkInterface::Wifi || iface.type() == QNetworkInterface::Ethernet)) {
+                ip = addr.toString();
+                break;
+            }
+            if (fallbackIp.isEmpty()) fallbackIp = addr.toString();
+        }
+        if (!ip.isEmpty()) break;
     }
+    if (ip.isEmpty()) ip = fallbackIp;
     if (ip.isEmpty()) {
         emit errorOccurred("Could not detect a network connection.");
         return false;
