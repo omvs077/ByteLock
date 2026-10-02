@@ -16,6 +16,7 @@ enum class ErrorCode {
     FileReadError,
     FileWriteError,
     InvalidInput,
+    UnexpectedError,
 };
 
 inline const char* toString(ErrorCode code)
@@ -31,6 +32,7 @@ inline const char* toString(ErrorCode code)
         case ErrorCode::FileReadError:        return "Failed to read file";
         case ErrorCode::FileWriteError:       return "Failed to write file";
         case ErrorCode::InvalidInput:         return "Invalid input parameters";
+        case ErrorCode::UnexpectedError:      return "Unexpected internal error";
     }
     return "Unknown error";
 }
@@ -121,3 +123,4 @@ private:
 };
 
 } // namespace bytelock
+

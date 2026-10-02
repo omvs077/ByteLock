@@ -59,6 +59,10 @@ target_include_directories(ByteLock PRIVATE
     ${CMAKE_SOURCE_DIR}/src
 )
 
+if(MSVC)
+    target_link_options(ByteLock PRIVATE /MANIFEST:NO)
+endif()
+
 if(WIN32)
     get_target_property(_qt6_core_location Qt6::Core IMPORTED_LOCATION_RELEASE)
     if(NOT _qt6_core_location)
@@ -69,7 +73,7 @@ if(WIN32)
 
     if(WINDEPLOYQT_EXECUTABLE)
         add_custom_command(TARGET ByteLock POST_BUILD
-            COMMAND "${WINDEPLOYQT_EXECUTABLE}" "$<TARGET_FILE:ByteLock>"
+            COMMAND "${WINDEPLOYQT_EXECUTABLE}" --no-compiler-runtime "$<TARGET_FILE:ByteLock>"
             COMMENT "Running windeployqt to bundle Qt DLLs"
         )
     endif()

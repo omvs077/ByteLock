@@ -1,2 +1,41 @@
-IDI_ICON1 ICON "icons/app.ico"
+﻿IDI_ICON1 ICON "icons/app.ico"
 IDI_ICON2 ICON "icons/blocked.ico"
+
+LANGUAGE 0x09, 0x10
+LANGUAGE 0x00, 0x00
+1 24 "app.manifest"
+LANGUAGE 0x09, 0x10
+
+
+#include <winver.h>
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,1,0,0
+ PRODUCTVERSION 1,1,0,0
+ FILEFLAGSMASK 0x3fL
+ FILEFLAGS 0x0L
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+ FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "400904B0"
+        BEGIN
+            VALUE "CompanyName", "Dvvyom Labs"
+            VALUE "FileDescription", "ByteLock - folder encryption"
+            VALUE "FileVersion", "1.1.0.0"
+            VALUE "InternalName", "ByteLock"
+            VALUE "LegalCopyright", "\251 2026 Dvvyom Labs"
+            VALUE "OriginalFilename", "ByteLock.exe"
+            VALUE "ProductName", "ByteLock"
+            VALUE "ProductVersion", "1.1.0.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x4009, 1200
+    END
+END
+
+

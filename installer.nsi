@@ -3,6 +3,13 @@
 
 Name "ByteLock"
 OutFile "ByteLock-Setup.exe"
+VIProductVersion "1.1.0.0"
+VIAddVersionKey /LANG=1033 "ProductName" "ByteLock"
+VIAddVersionKey /LANG=1033 "CompanyName" "Dvvyom Labs"
+VIAddVersionKey /LANG=1033 "LegalCopyright" "(c) 2026 Dvvyom Labs"
+VIAddVersionKey /LANG=1033 "FileDescription" "ByteLock Setup"
+VIAddVersionKey /LANG=1033 "FileVersion" "1.1.0.0"
+VIAddVersionKey /LANG=1033 "ProductVersion" "1.1.0.0"
 InstallDir "$LocalAppData\ByteLock"
 InstallDirRegKey HKCU "Software\ByteLock" "InstallDir"
 RequestExecutionLevel user
@@ -23,7 +30,7 @@ RequestExecutionLevel user
 
 Section "Install"
     SetOutPath "$INSTDIR"
-    File /r "build\release\*.*"
+    File /r /x ".ninja_*" /x "build.ninja" /x "CMakeCache.txt" /x "cmake_install.cmake" /x "CMakeFiles" /x ".qt" /x "*_autogen" /x "*.pdb" /x "*.lib" /x "*.exp" "build\release\*.*"
     File "README.txt"
 
     WriteRegStr HKCU "Software\ByteLock" "InstallDir" "$INSTDIR"
@@ -59,3 +66,6 @@ Section "Uninstall"
     RMDir /r "$SMPROGRAMS\ByteLock"
     RMDir /r "$INSTDIR"
 SectionEnd
+
+
+

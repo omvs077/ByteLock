@@ -165,9 +165,8 @@ void MainWindow::setupUi()
 
     auto* watermark = new QLabel(
         "<div style='font-size:11px;'>"
-        "Crafted by <b>Dvvyom</b> &nbsp;|&nbsp; "
-        "<a href='https://github.com/omvs077/ByteLock' style='color:#2f6fed;'>GitHub</a> &nbsp;|&nbsp; "
-        "<span style='color:#2f6fed;'>omvs077@gmail.com</span>"
+        "Crafted by <b>Dvvyom Labs</b> &nbsp;|&nbsp; "
+        "<span style='color:#2f6fed;'>dvvyomlabs19@zohomail.com</span>"
         "</div>", central);
     watermark->setOpenExternalLinks(true);
     watermark->setAlignment(Qt::AlignCenter);
@@ -332,12 +331,12 @@ void MainWindow::lockContainer(const QString& folder, bool closeWhenDone)
         if (closeWhenDone) close();
     });
 
-    QFuture<Result<void>> future = QtConcurrent::run([this, folder, containerPath, keyPtr, salt]() {
+    QFuture<Result<void>> future = QtConcurrent::run([this, folder, containerPath, keyPtr, salt]() { try {
         return FolderPacker::lockFolder(folder.toStdString(), containerPath.toStdString(), *keyPtr, salt,
                                          FolderPacker::DefaultStreamingThresholdBytes,
                                          [this](uint64_t done, uint64_t total) {
                                              emit progressChanged(done, total);
-                                         });
+                                         }); } catch (const std::exception& e) { return Result<void>::fail(ErrorCode::UnexpectedError, e.what()); } catch (...) { return Result<void>::fail(ErrorCode::UnexpectedError, "Unknown exception"); }
     });
     watcher->setFuture(future);
 }
@@ -430,11 +429,11 @@ void MainWindow::unlockContainerAttempt(const QString& containerPath, const QStr
         m_statusLabel->setText("Folder unlocked successfully.\nRestored to: " + destination);
     });
 
-    QFuture<Result<void>> future = QtConcurrent::run([this, containerPath, destination, keyPtr]() {
+    QFuture<Result<void>> future = QtConcurrent::run([this, containerPath, destination, keyPtr]() { try {
         return FolderPacker::unlockFolder(containerPath.toStdString(), destination.toStdString(), *keyPtr,
                                            [this](uint64_t done, uint64_t total) {
                                                emit progressChanged(done, total);
-                                           });
+                                           }); } catch (const std::exception& e) { return Result<void>::fail(ErrorCode::UnexpectedError, e.what()); } catch (...) { return Result<void>::fail(ErrorCode::UnexpectedError, "Unknown exception"); }
     });
     watcher->setFuture(future);
 }
@@ -500,6 +499,8 @@ void MainWindow::onSettingsClicked()
     SettingsDialog dialog(this);
     dialog.exec();
 }
+
+
 
 
 

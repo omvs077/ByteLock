@@ -249,9 +249,8 @@ QWidget* SettingsDialog::buildAboutPage()
 
     auto* watermark = new QLabel(
         "<div style='margin-top:18px; font-size:12px;'>"
-        "Crafted by <b>Dvvyom</b><br><br>"
-        "<a href='https://github.com/omvs077/ByteLock' style='color:#2f6fed;'>GitHub</a> &nbsp;|&nbsp; "
-        "<span style='color:#2f6fed;'>omvs077@gmail.com</span>"
+        "Crafted by <b>Dvvyom Labs</b><br><br>"
+        "<span style='color:#2f6fed;'>dvvyomlabs19@zohomail.com</span>"
         "</div>", page);
     watermark->setOpenExternalLinks(true);
     layout->addWidget(watermark);
@@ -439,3 +438,4 @@ void SettingsDialog::updatePairButtonState()
         m_pairButton->setText("   Pair Mobile Device...");
     }
 }
+

@@ -1,0 +1,6 @@
+﻿{
+  "name": "bytelock",
+  "version": "1.1.0",
+  "builtin-baseline": "a7eda31dc16994fcaa8587982eb833a8695f1b6f",
+  "dependencies": ["openssl", "zxing-cpp"]
+}

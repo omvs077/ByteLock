@@ -379,6 +379,7 @@ Result<void> FolderPacker::unlockFolder(const std::string& containerPath,
             return Result<void>::fail(ErrorCode::FileReadError, "Failed reading container header");
         }
 
+        if (fileSize < kHeaderSize + CryptoEngine::TagSizeBytes) return Result<void>::fail(ErrorCode::InvalidInput, "Container too small");
         const uint64_t ciphertextLen = fileSize - kHeaderSize - CryptoEngine::TagSizeBytes;
 
         std::vector<uint8_t> tag(CryptoEngine::TagSizeBytes);
@@ -417,10 +418,16 @@ Result<void> FolderPacker::unlockFolder(const std::string& containerPath,
             return Result<void>::fail(code, detail);
         };
 
+        auto isUnsafeRel = [](const fs::path& rel) {
+            if (rel.empty() || rel.is_absolute() || rel.has_root_name() || rel.has_root_directory() || rel.native().find(fs::path::value_type(':')) != fs::path::string_type::npos) return true;
+            for (const auto& part : rel) if (part == "..") return true;
+            return false;
+        };
         auto writeToCurrentFile = [&](const uint8_t* data, size_t len) -> Result<void> {
             size_t offset = 0;
             while (offset < len && currentFileIndex < entries.size()) {
                 if (!currentOutputFile.is_open()) {
+                    if (isUnsafeRel(entries[currentFileIndex].relativePath)) return Result<void>::fail(ErrorCode::InvalidInput, "Unsafe path in container");
                     fs::path outPath = stagingDir / fs::path(entries[currentFileIndex].relativePath);
                     std::error_code dirEc;
                     fs::create_directories(outPath.parent_path(), dirEc);
@@ -465,6 +472,7 @@ Result<void> FolderPacker::unlockFolder(const std::string& containerPath,
 
             if (!manifestParsed) {
                 manifestBuffer.insert(manifestBuffer.end(), plain.begin(), plain.end());
+                if (manifestBuffer.size() > (128u << 20)) return failAndCleanup(ErrorCode::InvalidInput, "Manifest too large");
                 size_t consumed = 0;
                 if (tryParseManifestPrefix(manifestBuffer, entries, consumed)) {
                     manifestParsed = true;
@@ -488,6 +496,15 @@ Result<void> FolderPacker::unlockFolder(const std::string& containerPath,
         auto finishResult = decryptor.finish(tag);
         if (!finishResult) {
             return failAndCleanup(finishResult.error(), finishResult.detail());
+        }
+
+        while (manifestParsed && currentFileIndex < entries.size() && entries[currentFileIndex].size == 0) {
+            if (isUnsafeRel(entries[currentFileIndex].relativePath)) return failAndCleanup(ErrorCode::InvalidInput, "Unsafe path in container");
+            fs::path emptyPath = stagingDir / fs::path(entries[currentFileIndex].relativePath);
+            std::error_code emptyEc;
+            fs::create_directories(emptyPath.parent_path(), emptyEc);
+            { std::ofstream emptyFile(emptyPath, std::ios::binary | std::ios::trunc); }
+            ++currentFileIndex;
         }
 
         if (!manifestParsed || currentFileIndex != entries.size()) {
@@ -519,6 +536,8 @@ Result<void> FolderPacker::unlockFolder(const std::string& containerPath,
 }
 
 } // namespace bytelock
+
+
 
 
 
