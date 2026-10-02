@@ -228,11 +228,11 @@ QWidget* SettingsDialog::buildAboutPage()
     nameLabel->setStyleSheet("font-weight: 600; font-size: 16px;");
     layout->addWidget(nameLabel);
 
-    auto* versionLabel = new QLabel("v1.0.0 (Release Build)", page);
+    auto* versionLabel = new QLabel("v" BYTELOCK_VERSION " (Release Build)", page);
     versionLabel->setStyleSheet("color: #6b7280; font-size: 12px;");
     layout->addWidget(versionLabel);
 
-    auto* descLabel = new QLabel("A zero-knowledge, local-first folder encryption tool powered by Qt6, OpenSSL, and WinFsp.", page);
+    auto* descLabel = new QLabel("A zero-knowledge, local-first folder encryption tool powered by Qt6 and OpenSSL.", page);
     descLabel->setWordWrap(true);
     descLabel->setStyleSheet("font-size: 12px; margin-top: 8px;");
     layout->addWidget(descLabel);
@@ -438,4 +438,5 @@ void SettingsDialog::updatePairButtonState()
         m_pairButton->setText("   Pair Mobile Device...");
     }
 }
+
 

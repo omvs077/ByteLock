@@ -55,6 +55,8 @@ target_link_libraries(ByteLock PRIVATE
     Crypt32
 )
 
+target_compile_definitions(ByteLock PRIVATE BYTELOCK_VERSION="${PROJECT_VERSION}")
+
 target_include_directories(ByteLock PRIVATE
     ${CMAKE_SOURCE_DIR}/src
 )
@@ -78,4 +80,5 @@ if(WIN32)
         )
     endif()
 endif()
+
 
