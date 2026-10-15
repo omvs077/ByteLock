@@ -415,7 +415,7 @@ void MainWindow::unlockContainerAttempt(const QString& containerPath, const QStr
             m_statusLabel->setText("Ready.");
             if (unlockResult.error() == ErrorCode::AuthenticationFailed) {
                 MasterConfig::recordFailedAttempt();
-                unlockContainerAttempt(containerPath, "Wrong password. Please try again.");
+                unlockContainerAttempt(containerPath, "Wrong password, or the container is damaged. Please try again.");
             } else {
                 QMessageBox::warning(this, "Unlock Failed", "FAILED to unlock: " + QString::fromStdString(unlockResult.errorMessage()));
             }
@@ -475,7 +475,7 @@ void MainWindow::unlockContainerSilent(const QString& containerPath)
         if (!unlockResult) {
             if (unlockResult.error() == ErrorCode::AuthenticationFailed) {
                 MasterConfig::recordFailedAttempt();
-                warningText = "Wrong password. Please try again.";
+                warningText = "Wrong password, or the container is damaged. Please try again.";
                 continue;
             }
             return;
@@ -499,6 +499,7 @@ void MainWindow::onSettingsClicked()
     SettingsDialog dialog(this);
     dialog.exec();
 }
+
 
 
 
