@@ -424,6 +424,7 @@ void MainWindow::unlockContainerAttempt(const QString& containerPath, const QStr
 
         MasterConfig::recordSuccessfulAttempt();
         QFile::remove(destination + ".blocked");
+        QFile::remove(destination + ".blk_recovery");
         MasterConfig::untrackLockedFolder(destination);
 
         m_statusLabel->setText("Folder unlocked successfully.\nRestored to: " + destination);
@@ -483,6 +484,7 @@ void MainWindow::unlockContainerSilent(const QString& containerPath)
 
         MasterConfig::recordSuccessfulAttempt();
         QFile::remove(destination + ".blocked");
+        QFile::remove(destination + ".blk_recovery");
         MasterConfig::untrackLockedFolder(destination);
         return;
     }
@@ -499,6 +501,7 @@ void MainWindow::onSettingsClicked()
     SettingsDialog dialog(this);
     dialog.exec();
 }
+
 
 
 

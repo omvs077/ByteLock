@@ -139,6 +139,7 @@ int main(int argc, char* argv[])
             memcpy(folderKey.data(), unwrapped.value().data(), unwrapped.value().size());
             if (FolderPacker::unlockFolder(containerPath.toStdString(), folderPath.toStdString(), folderKey)) {
                 QFile::remove(folderPath + ".blocked");
+                sidecar.remove();
                 MasterConfig::untrackLockedFolder(folderPath);
             }
         }
@@ -175,3 +176,4 @@ int main(int argc, char* argv[])
 
     return app.exec();
 }
+
